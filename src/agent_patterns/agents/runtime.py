@@ -7,6 +7,8 @@ from uuid import uuid4
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, StateSnapshot
+from opentelemetry import trace
+from opentelemetry.trace import Tracer
 
 from agent_patterns.agents.graph import build_agent_graph
 from agent_patterns.agents.state import AgentState, RunStatus
@@ -29,9 +31,10 @@ class RunNotPendingApprovalError(ValueError):
 class AgentRuntime:
     """Own the compiled graph and expose checkpoint-aware operations."""
 
-    def __init__(self) -> None:
+    def __init__(self, tracer: Tracer | None = None) -> None:
+        self._tracer = tracer or trace.get_tracer(__name__)
         self._checkpointer = InMemorySaver()
-        self._graph = build_agent_graph(self._checkpointer)
+        self._graph = build_agent_graph(self._checkpointer, self._tracer)
 
     @staticmethod
     def _config(thread_id: str) -> RunnableConfig:
@@ -50,23 +53,34 @@ class AgentRuntime:
             "audit_log": [],
             "completed_agents": [],
         }
-        await self._graph.ainvoke(initial, self._config(thread_id))
-        return await self.get(thread_id)
+        with self._tracer.start_as_current_span("agent.run") as span:
+            span.set_attribute("agent.thread_id", thread_id)
+            span.set_attribute("agent.risk_level", request.risk_level)
+            span.set_attribute("agent.approval_required", request.require_approval)
+            await self._graph.ainvoke(initial, self._config(thread_id))
+            result = await self.get(thread_id)
+            span.set_attribute("agent.status", result.status)
+            return result
 
     async def resume(
         self,
         thread_id: str,
         approval: ApprovalRequest,
     ) -> AgentRunResponse:
-        snapshot = await self._snapshot(thread_id)
-        if not snapshot.interrupts:
-            raise RunNotPendingApprovalError("Run is not waiting for approval")
+        with self._tracer.start_as_current_span("agent.approval.resume") as span:
+            span.set_attribute("agent.thread_id", thread_id)
+            span.set_attribute("agent.approved", approval.approved)
+            snapshot = await self._snapshot(thread_id)
+            if not snapshot.interrupts:
+                raise RunNotPendingApprovalError("Run is not waiting for approval")
 
-        command: Command[Any] = Command(
-            resume={"approved": approval.approved, "feedback": approval.feedback}
-        )
-        await self._graph.ainvoke(command, self._config(thread_id))
-        return await self.get(thread_id)
+            command: Command[Any] = Command(
+                resume={"approved": approval.approved, "feedback": approval.feedback}
+            )
+            await self._graph.ainvoke(command, self._config(thread_id))
+            result = await self.get(thread_id)
+            span.set_attribute("agent.status", result.status)
+            return result
 
     async def get(self, thread_id: str) -> AgentRunResponse:
         snapshot = await self._snapshot(thread_id)
@@ -85,23 +99,26 @@ class AgentRuntime:
             "audit_log": [],
             "completed_agents": [],
         }
-        yield AgentEvent(type="run_started", thread_id=thread_id)
-        stream = self._graph.astream(
-            initial,
-            self._config(thread_id),
-            stream_mode=["custom", "updates"],
-        )
-        async for mode, raw_event in stream:
-            if mode == "custom" and isinstance(raw_event, dict):
-                yield AgentEvent(
-                    type="token",
-                    thread_id=thread_id,
-                    agent=raw_event.get("agent"),
-                    token=raw_event.get("token"),
-                )
+        with self._tracer.start_as_current_span("agent.run.stream") as span:
+            span.set_attribute("agent.thread_id", thread_id)
+            yield AgentEvent(type="run_started", thread_id=thread_id)
+            stream = self._graph.astream(
+                initial,
+                self._config(thread_id),
+                stream_mode=["custom", "updates"],
+            )
+            async for mode, raw_event in stream:
+                if mode == "custom" and isinstance(raw_event, dict):
+                    yield AgentEvent(
+                        type="token",
+                        thread_id=thread_id,
+                        agent=raw_event.get("agent"),
+                        token=raw_event.get("token"),
+                    )
 
-        run = await self.get(thread_id)
-        yield AgentEvent(type=run.status, thread_id=thread_id, run=run)
+            run = await self.get(thread_id)
+            span.set_attribute("agent.status", run.status)
+            yield AgentEvent(type=run.status, thread_id=thread_id, run=run)
 
     async def _snapshot(self, thread_id: str) -> StateSnapshot:
         snapshot = await self._graph.aget_state(self._config(thread_id))

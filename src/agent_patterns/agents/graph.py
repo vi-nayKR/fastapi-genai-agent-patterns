@@ -6,6 +6,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
+from opentelemetry.trace import Tracer
 
 from agent_patterns.agents.state import AgentName, AgentState, GraphRoute
 from agent_patterns.agents.workers import build_worker
@@ -127,6 +128,7 @@ async def finalize(state: AgentState) -> AgentState:
 
 def build_agent_graph(
     checkpointer: BaseCheckpointSaver[str],
+    tracer: Tracer | None = None,
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
     """Compile the supervisor with an injected persistence implementation."""
 
@@ -135,9 +137,9 @@ def build_agent_graph(
     builder.add_node("supervisor", supervise)
     # LangGraph's node overloads currently infer Never for async factories even
     # though their runtime contract is Callable[[State], Awaitable[State]].
-    builder.add_node("research", build_worker("research"))  # type: ignore[arg-type]
-    builder.add_node("coding", build_worker("coding"))  # type: ignore[arg-type]
-    builder.add_node("compliance", build_worker("compliance"))  # type: ignore[arg-type]
+    builder.add_node("research", build_worker("research", tracer))  # type: ignore[arg-type]
+    builder.add_node("coding", build_worker("coding", tracer))  # type: ignore[arg-type]
+    builder.add_node("compliance", build_worker("compliance", tracer))  # type: ignore[arg-type]
     builder.add_node("approval", request_approval)
     builder.add_node("finalize", finalize)
 

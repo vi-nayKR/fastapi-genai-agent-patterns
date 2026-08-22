@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = Field(default=3600, ge=1)
     cache_vector_dimensions: int = Field(default=128, ge=8, le=4096)
     cache_semantic_distance_threshold: float = Field(default=0.12, ge=0.0, le=2.0)
+    cache_required: bool = True
+    dependency_timeout_seconds: float = Field(default=0.5, gt=0.0, le=30.0)
     otlp_endpoint: str | None = None
 
 

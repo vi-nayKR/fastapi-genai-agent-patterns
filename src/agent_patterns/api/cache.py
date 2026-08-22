@@ -28,7 +28,13 @@ def _unavailable(exc: RedisError) -> HTTPException:
     )
 
 
-@router.post("/entries", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/entries",
+    status_code=status.HTTP_201_CREATED,
+    operation_id="putCacheEntry",
+    summary="Write an exact and semantic cache entry",
+    responses={503: {"description": "Redis is unavailable"}},
+)
 async def put_entry(body: CachePutRequest, request: Request) -> dict[str, str]:
     try:
         key = await _cache(request).put(body.namespace, body.model, body.prompt, body.response)
@@ -37,7 +43,16 @@ async def put_entry(body: CachePutRequest, request: Request) -> dict[str, str]:
     return {"key": key}
 
 
-@router.post("/lookup", response_model=CacheLookupResponse)
+@router.post(
+    "/lookup",
+    response_model=CacheLookupResponse,
+    operation_id="lookupCacheEntry",
+    summary="Look up an exact or semantically similar prompt",
+    responses={
+        404: {"description": "No cache entry matched"},
+        503: {"description": "Redis is unavailable"},
+    },
+)
 async def lookup(
     body: CacheLookupRequest,
     request: Request,
@@ -59,7 +74,13 @@ async def lookup(
     )
 
 
-@router.delete("/entries", response_model=CacheEvictionResponse)
+@router.delete(
+    "/entries",
+    response_model=CacheEvictionResponse,
+    operation_id="evictCacheEntry",
+    summary="Evict one canonical prompt",
+    responses={503: {"description": "Redis is unavailable"}},
+)
 async def evict_entry(body: CacheLookupRequest, request: Request) -> CacheEvictionResponse:
     try:
         deleted = await _cache(request).evict_exact(body.namespace, body.model, body.prompt)
@@ -68,7 +89,13 @@ async def evict_entry(body: CacheLookupRequest, request: Request) -> CacheEvicti
     return CacheEvictionResponse(deleted=int(deleted))
 
 
-@router.delete("/namespaces/{namespace}", response_model=CacheEvictionResponse)
+@router.delete(
+    "/namespaces/{namespace}",
+    response_model=CacheEvictionResponse,
+    operation_id="evictCacheNamespace",
+    summary="Evict a namespace or namespace-model pair",
+    responses={503: {"description": "Redis is unavailable"}},
+)
 async def evict_namespace(
     namespace: str,
     request: Request,
@@ -81,7 +108,13 @@ async def evict_namespace(
     return CacheEvictionResponse(deleted=deleted)
 
 
-@router.get("/stats", response_model=CacheStatsResponse)
+@router.get(
+    "/stats",
+    response_model=CacheStatsResponse,
+    operation_id="getCacheStats",
+    summary="Read cache counters",
+    responses={503: {"description": "Redis is unavailable"}},
+)
 async def cache_stats(request: Request) -> CacheStatsResponse:
     try:
         counters = await _cache(request).stats()

@@ -21,7 +21,7 @@ class HealthResponse(StrictModel):
 
 
 class ReadinessResponse(StrictModel):
-    status: Literal["ready"] = "ready"
+    status: Literal["ready", "degraded"] = "ready"
     checks: dict[str, Literal["up", "degraded"]]
 
 

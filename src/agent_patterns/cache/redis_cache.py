@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from opentelemetry import trace
+from opentelemetry.trace import Tracer
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
@@ -36,12 +38,14 @@ class RedisSemanticCache:
         ttl_seconds: int = 3600,
         distance_threshold: float = 0.12,
         prefix: str = "agent-cache",
+        tracer: Tracer | None = None,
     ) -> None:
         self.redis = redis
         self.embedder = HashingEmbedder(dimensions)
         self.ttl_seconds = ttl_seconds
         self.distance_threshold = distance_threshold
         self.prefix = prefix
+        self.tracer = tracer or trace.get_tracer(__name__)
 
     @staticmethod
     def _digest(value: str, length: int = 32) -> str:
@@ -81,46 +85,57 @@ class RedisSemanticCache:
     async def get(self, namespace: str, model: str, prompt: str) -> CacheHit | None:
         """Return an exact hit first, then try the vector index."""
 
-        exact = await self.redis.hgetall(  # type: ignore[misc]
-            self._entry_key(namespace, model, prompt)
-        )
-        if exact:
-            await self._increment("exact_hits")
-            return self._decode_hash(exact, "exact", 0.0)
+        with self.tracer.start_as_current_span("cache.lookup") as span:
+            span.set_attribute("cache.namespace_hash", self._digest(namespace, 16))
+            span.set_attribute("cache.model_hash", self._digest(model, 16))
+            exact = await self.redis.hgetall(  # type: ignore[misc]
+                self._entry_key(namespace, model, prompt)
+            )
+            if exact:
+                await self._increment("exact_hits")
+                span.set_attribute("cache.hit", True)
+                span.set_attribute("cache.source", "exact")
+                return self._decode_hash(exact, "exact", 0.0)
 
-        semantic = await self._semantic_get(namespace, model, prompt)
-        if semantic is not None:
-            await self._increment("semantic_hits")
-            return semantic
+            semantic = await self._semantic_get(namespace, model, prompt)
+            if semantic is not None:
+                await self._increment("semantic_hits")
+                span.set_attribute("cache.hit", True)
+                span.set_attribute("cache.source", "semantic")
+                span.set_attribute("cache.distance", semantic.distance)
+                return semantic
 
-        await self._increment("misses")
-        return None
+            await self._increment("misses")
+            span.set_attribute("cache.hit", False)
+            return None
 
     async def put(self, namespace: str, model: str, prompt: str, response: Any) -> str:
         """Store one response as both an exact key and a vector-search document."""
 
-        key = self._entry_key(namespace, model, prompt)
-        mapping: dict[str, str | bytes] = {
-            "namespace_id": self._digest(namespace, 16),
-            "model_id": self._digest(model, 16),
-            "prompt": prompt,
-            "canonical_prompt": canonical_prompt(prompt),
-            "response": json.dumps(response, separators=(",", ":"), ensure_ascii=True),
-            "embedding": self.embedder.pack(prompt),
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        await self.redis.hset(key, mapping=mapping)  # type: ignore[misc]
-        await self.redis.expire(key, self.ttl_seconds)
-        await self.redis.execute_command(  # type: ignore[no-untyped-call]
-            "VADD",
-            self._vector_key(namespace, model),
-            "FP32",
-            self.embedder.pack(prompt),
-            self._digest(canonical_prompt(prompt)),
-            "NOQUANT",
-        )
-        await self._increment("writes")
-        return key
+        with self.tracer.start_as_current_span("cache.write") as span:
+            span.set_attribute("cache.namespace_hash", self._digest(namespace, 16))
+            key = self._entry_key(namespace, model, prompt)
+            mapping: dict[str, str | bytes] = {
+                "namespace_id": self._digest(namespace, 16),
+                "model_id": self._digest(model, 16),
+                "prompt": prompt,
+                "canonical_prompt": canonical_prompt(prompt),
+                "response": json.dumps(response, separators=(",", ":"), ensure_ascii=True),
+                "embedding": self.embedder.pack(prompt),
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+            await self.redis.hset(key, mapping=mapping)  # type: ignore[misc]
+            await self.redis.expire(key, self.ttl_seconds)
+            await self.redis.execute_command(  # type: ignore[no-untyped-call]
+                "VADD",
+                self._vector_key(namespace, model),
+                "FP32",
+                self.embedder.pack(prompt),
+                self._digest(canonical_prompt(prompt)),
+                "NOQUANT",
+            )
+            await self._increment("writes")
+            return key
 
     async def get_or_compute(
         self,
@@ -151,15 +166,18 @@ class RedisSemanticCache:
     async def evict_exact(self, namespace: str, model: str, prompt: str) -> bool:
         """Delete one canonical prompt entry in constant Redis key time."""
 
-        deleted = await self.redis.delete(self._entry_key(namespace, model, prompt))
-        await self.redis.execute_command(  # type: ignore[no-untyped-call]
-            "VREM",
-            self._vector_key(namespace, model),
-            self._digest(canonical_prompt(prompt)),
-        )
-        if deleted:
-            await self._increment("exact_evictions")
-        return bool(deleted)
+        with self.tracer.start_as_current_span("cache.evict.exact") as span:
+            span.set_attribute("cache.namespace_hash", self._digest(namespace, 16))
+            deleted = await self.redis.delete(self._entry_key(namespace, model, prompt))
+            await self.redis.execute_command(  # type: ignore[no-untyped-call]
+                "VREM",
+                self._vector_key(namespace, model),
+                self._digest(canonical_prompt(prompt)),
+            )
+            if deleted:
+                await self._increment("exact_evictions")
+            span.set_attribute("cache.deleted", bool(deleted))
+            return bool(deleted)
 
     async def evict_namespace(self, namespace: str, model: str | None = None) -> int:
         """Scan and delete entries in one namespace without blocking Redis."""

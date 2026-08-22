@@ -58,3 +58,34 @@ class AgentEvent(StrictModel):
     agent: str | None = None
     token: str | None = None
     run: AgentRunResponse | None = None
+
+
+class CacheLookupRequest(StrictModel):
+    namespace: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=128)
+    prompt: str = Field(min_length=1, max_length=20_000)
+
+
+class CachePutRequest(CacheLookupRequest):
+    response: Any
+
+
+class CacheLookupResponse(StrictModel):
+    hit: bool
+    source: Literal["exact", "semantic"] | None = None
+    distance: float | None = None
+    matched_prompt: str | None = None
+    response: Any = None
+
+
+class CacheEvictionResponse(StrictModel):
+    deleted: int = Field(ge=0)
+
+
+class CacheStatsResponse(StrictModel):
+    exact_hits: int = 0
+    semantic_hits: int = 0
+    misses: int = 0
+    writes: int = 0
+    exact_evictions: int = 0
+    namespace_evictions: int = 0

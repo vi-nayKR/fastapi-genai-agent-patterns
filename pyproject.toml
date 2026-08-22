@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastapi-genai-agent-patterns"
+version = "0.1.0"
+description = "Production reference patterns for FastAPI and LangGraph agent services"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Vinay K R" }]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "langchain-core>=0.3,<2",
+    "langgraph>=0.2.20,<2",
+    "opentelemetry-api>=1.26,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.26,<2",
+    "opentelemetry-instrumentation-fastapi>=0.47b0,<1",
+    "opentelemetry-sdk>=1.26,<2",
+    "pydantic>=2.8,<3",
+    "pydantic-settings>=2.4,<3",
+    "redis>=5,<8",
+    "uvicorn[standard]>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27,<1",
+    "mypy>=1.11,<2",
+    "pytest>=8.3,<10",
+    "pytest-asyncio>=0.24,<2",
+    "ruff>=0.6,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_patterns"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["agent_patterns"]

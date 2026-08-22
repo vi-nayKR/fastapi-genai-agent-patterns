@@ -8,6 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
 from agent_patterns import __version__
+from agent_patterns.agents import AgentRuntime
+from agent_patterns.api.agents import router as agents_router
 from agent_patterns.api.health import router as health_router
 from agent_patterns.config import Settings, get_settings
 
@@ -20,6 +22,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
+        app.state.agent_runtime = AgentRuntime()
         yield
 
     app = FastAPI(
@@ -41,4 +44,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     app.include_router(health_router)
+    app.include_router(agents_router, prefix=resolved_settings.api_prefix)
     return app

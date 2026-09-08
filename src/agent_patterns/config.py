@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     cache_required: bool = True
     dependency_timeout_seconds: float = Field(default=0.5, gt=0.0, le=30.0)
     otlp_endpoint: str | None = None
+    provider_mode: Literal["deterministic", "openai"] = "deterministic"
+    provider_api_key: str | None = None
+    provider_base_url: str = "https://api.openai.com/v1"
+    provider_model: str = "gpt-4o-mini"
+    provider_timeout_seconds: float = Field(default=15.0, gt=0.0, le=120.0)
+    provider_max_retries: int = Field(default=2, ge=0, le=5)
 
 
 @lru_cache

@@ -1,0 +1,34 @@
+"""Provider factory constructing adapters from runtime settings."""
+
+import httpx
+from opentelemetry.trace import Tracer
+
+from agent_patterns.config import Settings
+from agent_patterns.providers.base import LLMProvider
+from agent_patterns.providers.deterministic_provider import DeterministicProvider
+from agent_patterns.providers.openai_provider import OpenAIProvider
+
+
+def create_provider(
+    settings: Settings,
+    tracer: Tracer | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> LLMProvider:
+    """Instantiate the configured model provider adapter."""
+    if settings.provider_mode == "openai":
+        if not settings.provider_api_key and "api.openai.com" in settings.provider_base_url:
+            raise ValueError(
+                "AGENT_PATTERNS_PROVIDER_API_KEY must be set when "
+                "AGENT_PATTERNS_PROVIDER_MODE='openai' with api.openai.com"
+            )
+        return OpenAIProvider(
+            base_url=settings.provider_base_url,
+            api_key=settings.provider_api_key,
+            model=settings.provider_model,
+            timeout_seconds=settings.provider_timeout_seconds,
+            max_retries=settings.provider_max_retries,
+            tracer=tracer,
+            transport=transport,
+        )
+
+    return DeterministicProvider(tracer=tracer)

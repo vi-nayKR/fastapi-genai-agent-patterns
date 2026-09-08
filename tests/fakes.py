@@ -29,7 +29,7 @@ class FakeRedis:
         return self.hashes.get(key, {})
 
     async def hset(self, key: str, mapping: dict[str, str | bytes]) -> int:
-        self.hashes[key] = mapping
+        self.hashes[key] = {k: v for k, v in mapping.items()}
         return len(mapping)
 
     async def expire(self, key: str, ttl: int) -> bool:

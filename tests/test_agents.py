@@ -25,6 +25,10 @@ def test_supervisor_delegates_to_relevant_workers() -> None:
     assert body["completed_agents"] == ["research", "coding"]
     assert "Research summary" in body["result"]
     assert "Implementation plan" in body["result"]
+    # Verify structured outputs are populated
+    assert body["structured_result"] is not None
+    assert body["structured_result"]["research"]["confidence"] == "high"
+    assert body["structured_result"]["action"]["action_type"] == "read_only"
 
 
 def test_high_risk_run_interrupts_and_resumes() -> None:
@@ -46,6 +50,7 @@ def test_high_risk_run_interrupts_and_resumes() -> None:
     assert resumed.json()["status"] == "completed"
     assert resumed.json()["completed_agents"] == ["research", "coding", "compliance"]
     assert "approval:approved" in resumed.json()["audit_log"]
+    assert resumed.json()["structured_result"]["compliance"]["requires_human_approval"] is True
 
 
 def test_reviewer_can_reject_run() -> None:
@@ -93,3 +98,21 @@ def test_stream_emits_tokens_and_terminal_state() -> None:
     assert any(event["type"] == "token" and event["agent"] == "coding" for event in events)
     assert events[-1]["type"] == "completed"
     assert events[-1]["run"]["status"] == "completed"
+    assert events[-1]["run"]["structured_result"] is not None
+
+
+def test_iteration_limit_halts_supervisor() -> None:
+    with client() as test_client:
+        response = test_client.post(
+            "/api/v1/agents/runs",
+            json={
+                "task": "Deploy a payment API with testing",
+                "max_iterations": 2,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert "iteration_limit" in str(body["audit_log"])
+

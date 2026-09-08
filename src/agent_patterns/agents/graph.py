@@ -1,4 +1,4 @@
-"""LangGraph supervisor with specialist routing and approval interrupts."""
+"""LangGraph supervisor with specialist routing, structured outputs, and failure handling."""
 
 from typing import cast
 
@@ -10,6 +10,13 @@ from opentelemetry.trace import Tracer
 
 from agent_patterns.agents.state import AgentName, AgentState, GraphRoute
 from agent_patterns.agents.workers import build_worker
+from agent_patterns.providers.base import LLMProvider
+from agent_patterns.schemas import (
+    ActionProposal,
+    ComplianceReview,
+    ResearchFinding,
+    StructuredAgentResult,
+)
 
 MUTATION_TERMS = frozenset({"delete", "deploy", "execute", "modify", "payment", "write"})
 CODE_TERMS = frozenset({"api", "bug", "code", "function", "implement", "python", "test"})
@@ -21,7 +28,6 @@ def _words(task: str) -> set[str]:
 
 async def plan(state: AgentState) -> AgentState:
     """Select only the specialists needed for the task."""
-
     words = _words(state["task"])
     planned: list[AgentName] = ["research"]
     if words & CODE_TERMS:
@@ -33,6 +39,8 @@ async def plan(state: AgentState) -> AgentState:
         "planned_agents": planned,
         "completed_agents": [],
         "partial_results": {},
+        "structured_results": {},
+        "total_tokens": 0,
         "iterations": 0,
         "status": "running",
         "audit_log": [f"supervisor:planned:{','.join(planned)}"],
@@ -41,6 +49,12 @@ async def plan(state: AgentState) -> AgentState:
 
 async def supervise(state: AgentState) -> AgentState:
     """Route to an unfinished worker, approval gate, or finalizer."""
+    if state.get("status") == "failed":
+        return {
+            "iterations": state.get("iterations", 0),
+            "next_route": "finalize",
+            "audit_log": ["supervisor:halted_on_failure"],
+        }
 
     iterations = state.get("iterations", 0) + 1
     if iterations > state["max_iterations"]:
@@ -48,6 +62,7 @@ async def supervise(state: AgentState) -> AgentState:
             "iterations": iterations,
             "next_route": "finalize",
             "status": "failed",
+            "error_details": "Supervisor reached maximum iteration limit.",
             "result": "Supervisor stopped after reaching the iteration limit.",
             "audit_log": ["supervisor:iteration_limit"],
         }
@@ -78,7 +93,6 @@ def select_route(state: AgentState) -> GraphRoute:
 
 async def request_approval(state: AgentState) -> AgentState:
     """Suspend execution and consume the decision supplied during resume."""
-
     decision = interrupt(
         {
             "type": "approval_required",
@@ -102,10 +116,16 @@ async def request_approval(state: AgentState) -> AgentState:
 
 
 async def finalize(state: AgentState) -> AgentState:
-    """Combine specialist output only after policy requirements are satisfied."""
-
+    """Combine specialist output and structured findings into the terminal response."""
     if state.get("status") == "failed":
-        return {}
+        error_msg = state.get("error_details") or state.get("result") or "Execution failed."
+        return {
+            "status": "failed",
+            "result": f"Execution failed: {error_msg}",
+            "error_details": error_msg,
+            "audit_log": ["run:failed"],
+        }
+
     if state.get("approval_decision") is False:
         feedback = state.get("approval_feedback") or "No feedback was supplied."
         return {
@@ -119,27 +139,49 @@ async def finalize(state: AgentState) -> AgentState:
         for agent in state.get("completed_agents", [])
         if agent in state.get("partial_results", {})
     ]
+    final_text = "\n\n".join(ordered_results)
+
+    structured_map = state.get("structured_results", {})
+    research_dict = structured_map.get("research")
+    coding_dict = structured_map.get("coding")
+    compliance_dict = structured_map.get("compliance")
+
+    research_obj = ResearchFinding.model_validate(research_dict) if research_dict else None
+    action_obj = ActionProposal.model_validate(coding_dict) if coding_dict else None
+    compliance_obj = (
+        ComplianceReview.model_validate(compliance_dict) if compliance_dict else None
+    )
+
+    structured_res = StructuredAgentResult(
+        research=research_obj,
+        action=action_obj,
+        compliance=compliance_obj,
+        final_synthesis=final_text,
+        tokens_used=state.get("total_tokens", 0),
+    )
+
     return {
         "status": "completed",
-        "result": "\n\n".join(ordered_results),
+        "result": final_text,
+        "structured_result": structured_res.model_dump(),
         "audit_log": ["run:completed"],
     }
 
 
 def build_agent_graph(
     checkpointer: BaseCheckpointSaver[str],
+    provider: LLMProvider | None = None,
     tracer: Tracer | None = None,
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
-    """Compile the supervisor with an injected persistence implementation."""
-
+    """Compile the supervisor with an injected persistence implementation and provider."""
     builder = StateGraph(AgentState)
     builder.add_node("plan", plan)
     builder.add_node("supervisor", supervise)
     # LangGraph's node overloads currently infer Never for async factories even
     # though their runtime contract is Callable[[State], Awaitable[State]].
-    builder.add_node("research", build_worker("research", tracer))  # type: ignore[arg-type]
-    builder.add_node("coding", build_worker("coding", tracer))  # type: ignore[arg-type]
-    builder.add_node("compliance", build_worker("compliance", tracer))  # type: ignore[arg-type]
+    builder.add_node("research", build_worker("research", provider, tracer))  # type: ignore[arg-type]
+    builder.add_node("coding", build_worker("coding", provider, tracer))  # type: ignore[arg-type]
+    builder.add_node("compliance", build_worker("compliance", provider, tracer))  # type: ignore[arg-type]
     builder.add_node("approval", request_approval)
     builder.add_node("finalize", finalize)
 

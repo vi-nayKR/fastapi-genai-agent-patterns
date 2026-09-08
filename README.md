@@ -8,31 +8,35 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A production-oriented reference implementation for typed LangGraph supervisors,
+real provider mode (OpenAI / Ollama / vLLM), schema-enforced structured outputs,
 human approval checkpoints, asynchronous token streaming, Redis 8 exact and
 semantic caching, and end-to-end OpenTelemetry traces.
 
-The default workers are deterministic and require no model key. Their boundaries
-are designed to be replaced with provider-backed agents while retaining routing,
-checkpointing, streaming, caching, and telemetry behavior.
+The service supports both real model providers and a deterministic fixture mode.
+When configured with an external provider, requests enforce request deadlines, bounded
+retries with 429 backoff, schema validation, and explicit failure propagation without
+silent mock fallback.
 
 ## What this project proves
 
 - A cyclic supervisor delegates to research, coding, and compliance specialists
   according to task content and risk.
+- Specialist workers produce validated structured outputs (`ResearchFinding`,
+  `ActionProposal`, `ComplianceReview`, `StructuredAgentResult`) via strict JSON schemas.
+- Real provider mode supports OpenAI-compatible endpoints with bounded retries,
+  deadlines, rate-limit backoff, and fail-fast authentication.
+- Failures in real provider mode fail explicitly into checkpoint state and audit logs
+  rather than silently masking provider errors with fake responses.
 - LangGraph checkpoints preserve full state across human approval interrupts and
   explicit `Command`-based resume calls.
 - Async workers emit ordered tokens through LangGraph custom streams and a
   Server-Sent Events API.
 - Redis 8 performs canonical exact lookup before native vector-set similarity,
   with TTL, distributed stampede locks, and tenant-scoped invalidation.
-- OpenTelemetry links inbound HTTP spans to agent runs, specialist workers, and
-  cache operations without recording prompt or response content.
+- OpenTelemetry links inbound HTTP spans to agent runs, specialist workers, provider
+  calls with token usage, and cache operations.
 - Ruff, strict Mypy, unit tests, Redis integration tests, and a latency benchmark
   run as CI gates.
-
-The recorded local Redis 8.10.1 benchmark produced `0.245 ms` exact lookup p95
-and `0.180 ms` exact eviction p95 over 1,000 iterations. See
-[`docs/phase3.md`](docs/phase3.md) for methodology and scope.
 
 ## Architecture
 
@@ -158,6 +162,12 @@ are:
 | `CACHE_REQUIRED` | `true` | Whether Redis gates readiness |
 | `DEPENDENCY_TIMEOUT_SECONDS` | `0.5` | Readiness dependency timeout |
 | `OTLP_ENDPOINT` | unset | OTLP HTTP trace endpoint |
+| `PROVIDER_MODE` | `deterministic` | Provider execution mode (`deterministic` or `openai`) |
+| `PROVIDER_API_KEY` | unset | API key for OpenAI-compatible provider |
+| `PROVIDER_BASE_URL` | `https://api.openai.com/v1` | Endpoint URL (supports Ollama, vLLM, Groq) |
+| `PROVIDER_MODEL` | `gpt-4o-mini` | Target model name |
+| `PROVIDER_TIMEOUT_SECONDS` | `15.0` | Provider request deadline |
+| `PROVIDER_MAX_RETRIES` | `2` | Bounded retries on transient errors and 429 backoff |
 
 ## Phase documentation
 
@@ -166,15 +176,15 @@ are:
 - [Phase 2: Stateful supervisor, approval, and streaming](docs/phase2.md)
 - [Phase 3: Redis 8 exact and semantic cache](docs/phase3.md)
 - [Phase 4: Observability and deployment hardening](docs/phase4.md)
+- [Phase 5: Real provider mode, structured outputs, and failure boundaries](docs/phase5.md)
 
 Each document explains design decisions, files, behavior, verification, and the
 handoff to the following phase.
 
 ## Production extension points
 
-- Replace deterministic workers with LLM clients at the worker node boundary.
-- Replace `InMemorySaver` with a database-backed LangGraph checkpointer when
-  checkpoints must survive process replacement.
+- Replace `InMemorySaver` with a database-backed LangGraph checkpointer (PostgreSQL)
+  when checkpoints must survive process replacement.
 - Replace `HashingEmbedder` with the deployment's embedding model while keeping
   vector dimensions consistent across writers and Redis vector sets.
 - Apply authentication and tenant authorization at the API gateway or route

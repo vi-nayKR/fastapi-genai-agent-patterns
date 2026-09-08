@@ -1,7 +1,7 @@
 """Typed state and routing contracts for the supervisor graph."""
 
 import operator
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 AgentName = Literal["research", "coding", "compliance"]
 GraphRoute = Literal["research", "coding", "compliance", "approval", "finalize"]
@@ -20,6 +20,10 @@ class AgentState(TypedDict, total=False):
     planned_agents: list[AgentName]
     completed_agents: Annotated[list[AgentName], operator.add]
     partial_results: dict[str, str]
+    structured_results: dict[str, Any]
+    structured_result: dict[str, Any] | None
+    error_details: str | None
+    total_tokens: int
     audit_log: Annotated[list[str], operator.add]
     iterations: int
     max_iterations: int

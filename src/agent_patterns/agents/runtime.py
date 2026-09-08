@@ -12,11 +12,15 @@ from opentelemetry.trace import Tracer
 
 from agent_patterns.agents.graph import build_agent_graph
 from agent_patterns.agents.state import AgentState, RunStatus
+from agent_patterns.config import Settings, get_settings
+from agent_patterns.providers.base import LLMProvider
+from agent_patterns.providers.factory import create_provider
 from agent_patterns.schemas import (
     AgentEvent,
     AgentRunRequest,
     AgentRunResponse,
     ApprovalRequest,
+    StructuredAgentResult,
 )
 
 
@@ -29,12 +33,27 @@ class RunNotPendingApprovalError(ValueError):
 
 
 class AgentRuntime:
-    """Own the compiled graph and expose checkpoint-aware operations."""
+    """Own the compiled graph, provider adapter, and checkpoint-aware operations."""
 
-    def __init__(self, tracer: Tracer | None = None) -> None:
+    def __init__(
+        self,
+        tracer: Tracer | None = None,
+        settings: Settings | None = None,
+        provider: LLMProvider | None = None,
+    ) -> None:
         self._tracer = tracer or trace.get_tracer(__name__)
+        self._settings = settings or get_settings()
+        self._provider = provider or create_provider(self._settings, tracer=self._tracer)
         self._checkpointer = InMemorySaver()
-        self._graph = build_agent_graph(self._checkpointer, self._tracer)
+        self._graph = build_agent_graph(
+            self._checkpointer,
+            provider=self._provider,
+            tracer=self._tracer,
+        )
+
+    async def close(self) -> None:
+        """Close provider resources."""
+        await self._provider.close()
 
     @staticmethod
     def _config(thread_id: str) -> RunnableConfig:
@@ -52,6 +71,9 @@ class AgentRuntime:
             "max_iterations": request.max_iterations,
             "audit_log": [],
             "completed_agents": [],
+            "partial_results": {},
+            "structured_results": {},
+            "total_tokens": 0,
         }
         with self._tracer.start_as_current_span("agent.run") as span:
             span.set_attribute("agent.thread_id", thread_id)
@@ -98,6 +120,9 @@ class AgentRuntime:
             "max_iterations": request.max_iterations,
             "audit_log": [],
             "completed_agents": [],
+            "partial_results": {},
+            "structured_results": {},
+            "total_tokens": 0,
         }
         with self._tracer.start_as_current_span("agent.run.stream") as span:
             span.set_attribute("agent.thread_id", thread_id)
@@ -137,11 +162,17 @@ class AgentRuntime:
             if snapshot.interrupts
             else cast(RunStatus, values.get("status", "running"))
         )
+        structured_raw = values.get("structured_result")
+        structured_obj = (
+            StructuredAgentResult.model_validate(structured_raw) if structured_raw else None
+        )
         return AgentRunResponse(
             thread_id=thread_id,
             status=status,
             task=values["task"],
             result=values.get("result"),
+            structured_result=structured_obj,
+            error_details=values.get("error_details"),
             completed_agents=values.get("completed_agents", []),
             audit_log=values.get("audit_log", []),
             approval=interrupt_payload,

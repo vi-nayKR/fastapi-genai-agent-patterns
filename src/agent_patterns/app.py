@@ -16,12 +16,14 @@ from agent_patterns.api.cache import router as cache_router
 from agent_patterns.api.health import router as health_router
 from agent_patterns.cache import RedisSemanticCache
 from agent_patterns.config import Settings, get_settings
+from agent_patterns.providers.base import LLMProvider
 from agent_patterns.telemetry import create_tracer_provider, instrument_fastapi
 
 
 def create_app(
     settings: Settings | None = None,
     span_exporter: SpanExporter | None = None,
+    provider: LLMProvider | None = None,
 ) -> FastAPI:
     """Build an isolated application instance for production or tests."""
 
@@ -32,7 +34,11 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
-        app.state.agent_runtime = AgentRuntime(tracer)
+        app.state.agent_runtime = AgentRuntime(
+            tracer,
+            settings=resolved_settings,
+            provider=provider,
+        )
         redis = Redis.from_url(
             resolved_settings.redis_url,
             decode_responses=False,
@@ -50,6 +56,7 @@ def create_app(
         try:
             yield
         finally:
+            await app.state.agent_runtime.close()
             await redis.aclose()
             tracer_provider.shutdown()
 

@@ -28,6 +28,7 @@ class ReadinessResponse(StrictModel):
 class AgentRunRequest(StrictModel):
     task: str = Field(min_length=3, max_length=10_000)
     thread_id: str | None = Field(default=None, min_length=1, max_length=128)
+    tenant_id: str = Field(default="tenant-alpha", min_length=1, max_length=64)
     risk_level: Literal["low", "medium", "high"] = "low"
     require_approval: bool = False
     max_iterations: int = Field(default=8, ge=2, le=32)
@@ -99,6 +100,7 @@ class StructuredAgentResult(StrictModel):
 
 class AgentRunResponse(StrictModel):
     thread_id: str
+    tenant_id: str = "tenant-alpha"
     status: Literal["running", "pending_approval", "completed", "rejected", "failed"]
     task: str
     result: str | None = None

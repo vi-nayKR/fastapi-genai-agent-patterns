@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from agent_patterns.agents.state import AgentName, AgentState
 from agent_patterns.providers.base import LLMProvider, ProviderError
 from agent_patterns.providers.deterministic_provider import DeterministicProvider
+from agent_patterns.retrieval.hybrid import HybridRetriever
 from agent_patterns.schemas import ActionProposal, ComplianceReview, ResearchFinding
 
 Worker = Callable[[AgentState], Awaitable[AgentState]]
@@ -46,6 +47,7 @@ def build_worker(
     agent: AgentName,
     provider: LLMProvider | None = None,
     tracer: Tracer | None = None,
+    retriever: HybridRetriever | None = None,
 ) -> Worker:
     """Build a graph node that calls the model provider and emits structured tokens."""
     resolved_tracer = tracer or trace.get_tracer(__name__)
@@ -61,9 +63,35 @@ def build_worker(
             if state.get("status") == "failed":
                 return {}
 
+            user_content = state["task"]
+            if agent == "research" and retriever is not None:
+                tenant_id = state.get("tenant_id", "tenant-alpha")
+                results = retriever.search(state["task"], tenant_id=tenant_id, top_k=3)
+                if results:
+                    context_blocks = [
+                        f"[{r.chunk.doc_id} v{r.chunk.version}] ({r.chunk.section})\n{r.chunk.text}"
+                        for r in results
+                    ]
+                    user_content = (
+                        f"[tenant: {tenant_id}] {state['task']}\n\n"
+                        "Retrieved authoritative documentation:\n"
+                        + "\n---\n".join(context_blocks)
+                    )
+                else:
+                    user_content = (
+                        f"[tenant: {tenant_id}] {state['task']}\n\n"
+                        "Retrieved authoritative documentation: None found for this query."
+                    )
+            elif agent in ("coding", "compliance") and state.get("partial_results"):
+                research_summary = state["partial_results"].get("research")
+                if research_summary:
+                    user_content = (
+                        f"{state['task']}\n\nPrior Research Findings:\n{research_summary}"
+                    )
+
             messages = [
                 {"role": "system", "content": _system_prompt(agent)},
-                {"role": "user", "content": state["task"]},
+                {"role": "user", "content": user_content},
             ]
 
             try:

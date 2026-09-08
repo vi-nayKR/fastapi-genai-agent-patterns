@@ -177,9 +177,22 @@ are:
 - [Phase 3: Redis 8 exact and semantic cache](docs/phase3.md)
 - [Phase 4: Observability and deployment hardening](docs/phase4.md)
 - [Phase 5: Real provider mode, structured outputs, and failure boundaries](docs/phase5.md)
+- [Phase 6: Versioned retrieval and evaluation benchmark with reproducible metrics](docs/phase6.md)
 
 Each document explains design decisions, files, behavior, verification, and the
 handoff to the following phase.
+
+## Retrieval and Evaluation Benchmark
+
+Run the automated 30-case evaluation benchmark and retrieval ablation suite:
+
+```bash
+python -m scripts.run_evaluation
+```
+
+This generates committed JSON and Markdown evaluation artifacts in `evals/reports/`:
+- [`benchmark_v1_report.json`](evals/reports/benchmark_v1_report.json): Machine-readable execution logs and metrics.
+- [`benchmark_v1_report.md`](evals/reports/benchmark_v1_report.md): Summary table, retrieval ablation comparison (Dense vs Lexical vs Hybrid), category performance breakdown, and case execution log.
 
 ## Production extension points
 

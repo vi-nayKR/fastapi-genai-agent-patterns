@@ -11,6 +11,7 @@ from opentelemetry.trace import Tracer
 from agent_patterns.agents.state import AgentName, AgentState, GraphRoute
 from agent_patterns.agents.workers import build_worker
 from agent_patterns.providers.base import LLMProvider
+from agent_patterns.retrieval.hybrid import HybridRetriever
 from agent_patterns.schemas import (
     ActionProposal,
     ComplianceReview,
@@ -18,7 +19,40 @@ from agent_patterns.schemas import (
     StructuredAgentResult,
 )
 
-MUTATION_TERMS = frozenset({"delete", "deploy", "execute", "modify", "payment", "write"})
+MUTATION_TERMS = frozenset(
+    {
+        "bypass",
+        "delete",
+        "deploy",
+        "execute",
+        "modify",
+        "override",
+        "payment",
+        "purge",
+        "write",
+    }
+)
+ACTION_STARTERS = frozenset(
+    {
+        "apply",
+        "bypass",
+        "confidential",
+        "delete",
+        "deploy",
+        "execute",
+        "hotfix",
+        "ignore",
+        "implement",
+        "patch",
+        "process",
+        "purge",
+        "run",
+        "skip",
+        "stage",
+        "system",
+        "update",
+    }
+)
 CODE_TERMS = frozenset({"api", "bug", "code", "function", "implement", "python", "test"})
 
 
@@ -29,10 +63,16 @@ def _words(task: str) -> set[str]:
 async def plan(state: AgentState) -> AgentState:
     """Select only the specialists needed for the task."""
     words = _words(state["task"])
+    task_tokens = state["task"].split()
+    first_word = task_tokens[0].strip(".,:;!?()[]{}").lower() if task_tokens else ""
+
     planned: list[AgentName] = ["research"]
-    if words & CODE_TERMS:
+    is_adversarial = bool(words & {"override", "bypass", "ignore"})
+    is_action = (first_word in ACTION_STARTERS) or is_adversarial or bool(words & CODE_TERMS)
+
+    if is_action:
         planned.append("coding")
-    if state["risk_level"] == "high" or words & MUTATION_TERMS:
+    if state["risk_level"] == "high" or bool(words & MUTATION_TERMS):
         planned.append("compliance")
 
     return {
@@ -172,6 +212,7 @@ def build_agent_graph(
     checkpointer: BaseCheckpointSaver[str],
     provider: LLMProvider | None = None,
     tracer: Tracer | None = None,
+    retriever: HybridRetriever | None = None,
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
     """Compile the supervisor with an injected persistence implementation and provider."""
     builder = StateGraph(AgentState)
@@ -179,9 +220,9 @@ def build_agent_graph(
     builder.add_node("supervisor", supervise)
     # LangGraph's node overloads currently infer Never for async factories even
     # though their runtime contract is Callable[[State], Awaitable[State]].
-    builder.add_node("research", build_worker("research", provider, tracer))  # type: ignore[arg-type]
-    builder.add_node("coding", build_worker("coding", provider, tracer))  # type: ignore[arg-type]
-    builder.add_node("compliance", build_worker("compliance", provider, tracer))  # type: ignore[arg-type]
+    builder.add_node("research", build_worker("research", provider, tracer, retriever))  # type: ignore[arg-type]
+    builder.add_node("coding", build_worker("coding", provider, tracer, retriever))  # type: ignore[arg-type]
+    builder.add_node("compliance", build_worker("compliance", provider, tracer, retriever))  # type: ignore[arg-type]
     builder.add_node("approval", request_approval)
     builder.add_node("finalize", finalize)
 

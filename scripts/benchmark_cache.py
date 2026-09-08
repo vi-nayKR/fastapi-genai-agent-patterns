@@ -5,6 +5,7 @@ import asyncio
 import statistics
 import time
 from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from redis.asyncio import Redis
 
@@ -27,7 +28,7 @@ async def benchmark(redis_url: str, iterations: int, target_ms: float) -> int:
     redis = Redis.from_url(redis_url, decode_responses=False)
     cache = RedisSemanticCache(redis, prefix="agent-cache-benchmark")
     try:
-        await redis.ping()
+        await cast(Any, redis.ping())
         await cache.ensure_index()
         prompt = "What is the approved deployment procedure?"
         response = {"answer": "Use the change-management runbook."}

@@ -15,11 +15,16 @@ from agent_patterns.agents.state import AgentState, RunStatus
 from agent_patterns.config import Settings, get_settings
 from agent_patterns.providers.base import LLMProvider
 from agent_patterns.providers.factory import create_provider
+from agent_patterns.retrieval.corpus import OPERATIONAL_CORPUS
+from agent_patterns.retrieval.hybrid import HybridRetriever
 from agent_patterns.schemas import (
+    ActionProposal,
     AgentEvent,
     AgentRunRequest,
     AgentRunResponse,
     ApprovalRequest,
+    ComplianceReview,
+    ResearchFinding,
     StructuredAgentResult,
 )
 
@@ -40,15 +45,18 @@ class AgentRuntime:
         tracer: Tracer | None = None,
         settings: Settings | None = None,
         provider: LLMProvider | None = None,
+        retriever: HybridRetriever | None = None,
     ) -> None:
         self._tracer = tracer or trace.get_tracer(__name__)
         self._settings = settings or get_settings()
         self._provider = provider or create_provider(self._settings, tracer=self._tracer)
+        self._retriever = retriever or HybridRetriever(OPERATIONAL_CORPUS, tracer=self._tracer)
         self._checkpointer = InMemorySaver()
         self._graph = build_agent_graph(
             self._checkpointer,
             provider=self._provider,
             tracer=self._tracer,
+            retriever=self._retriever,
         )
 
     async def close(self) -> None:
@@ -63,6 +71,7 @@ class AgentRuntime:
         thread_id = request.thread_id or str(uuid4())
         initial: AgentState = {
             "thread_id": thread_id,
+            "tenant_id": request.tenant_id,
             "task": request.task,
             "risk_level": request.risk_level,
             "require_approval": request.require_approval,
@@ -112,6 +121,7 @@ class AgentRuntime:
         thread_id = request.thread_id or str(uuid4())
         initial: AgentState = {
             "thread_id": thread_id,
+            "tenant_id": request.tenant_id,
             "task": request.task,
             "risk_level": request.risk_level,
             "require_approval": request.require_approval,
@@ -166,8 +176,21 @@ class AgentRuntime:
         structured_obj = (
             StructuredAgentResult.model_validate(structured_raw) if structured_raw else None
         )
+        if not structured_obj and values.get("structured_results"):
+            s_map = values["structured_results"]
+            r_dict = s_map.get("research")
+            a_dict = s_map.get("coding")
+            c_dict = s_map.get("compliance")
+            structured_obj = StructuredAgentResult(
+                research=ResearchFinding.model_validate(r_dict) if r_dict else None,
+                action=ActionProposal.model_validate(a_dict) if a_dict else None,
+                compliance=ComplianceReview.model_validate(c_dict) if c_dict else None,
+                final_synthesis=values.get("result") or "Pending approval by human operator.",
+                tokens_used=values.get("total_tokens", 0),
+            )
         return AgentRunResponse(
             thread_id=thread_id,
+            tenant_id=values.get("tenant_id", "tenant-alpha"),
             status=status,
             task=values["task"],
             result=values.get("result"),

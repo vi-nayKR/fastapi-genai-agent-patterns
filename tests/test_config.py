@@ -10,7 +10,7 @@ def test_settings_are_immutable() -> None:
     settings = Settings()
 
     with pytest.raises(ValidationError):
-        settings.environment = "production"  # type: ignore[misc]
+        settings.environment = "production"
 
 
 

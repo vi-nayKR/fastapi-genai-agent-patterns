@@ -12,6 +12,7 @@ class AgentState(TypedDict, total=False):
     """Checkpointed state shared by the supervisor and specialist workers."""
 
     thread_id: str
+    tenant_id: str
     task: str
     risk_level: Literal["low", "medium", "high"]
     require_approval: bool

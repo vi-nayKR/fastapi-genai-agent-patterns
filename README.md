@@ -211,7 +211,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Author
 
-Vinay K R, Senior GenAI and Applied AI Systems Engineer
+Vinay K R, Applied AI & Full-Stack Systems Engineer
 
 - Portfolio: [portfolio.vinaykr.workers.dev](https://portfolio.vinaykr.workers.dev/)
 - LinkedIn: [linkedin.com/in/vi-naykr](https://linkedin.com/in/vi-naykr)

@@ -179,7 +179,7 @@ pytest
 AGENT_PATTERNS_REVIEWER_API_KEY=local-integration-only docker compose up -d redis postgres
 TEST_REDIS_URL=redis://localhost:6379/0 \
 TEST_CHECKPOINT_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/agent_patterns \
-LANGGRAPH_STRICT_MSGPACK=true pytest tests/integration
+uv run pytest tests/integration
 python -m scripts.benchmark_cache --iterations 1000 --target-ms 5
 ```
 
@@ -248,8 +248,8 @@ This generates committed JSON and Markdown evaluation artifacts in `evals/report
 
 - The API uses `AsyncPostgresSaver` when `CHECKPOINT_DATABASE_URL` is configured;
   staging and production reject startup without PostgreSQL and a reviewer key.
-  `InMemorySaver` is only the no-database local/test default. Strict msgpack
-  deserialization is enabled when the PostgreSQL saver starts.
+  `InMemorySaver` is only the no-database local/test default. The PostgreSQL
+  saver receives LangGraph's strict msgpack allowlist directly.
 - Replace `HashingEmbedder` with the deployment's embedding model while keeping
   vector dimensions consistent across writers and Redis vector sets.
 - Replace the single-token/single-tenant demo mapping with verified identity

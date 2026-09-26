@@ -1,6 +1,5 @@
 """FastAPI application factory."""
 
-import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from uuid import uuid4
@@ -10,6 +9,7 @@ from fastapi.responses import Response
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from opentelemetry.sdk.trace.export import SpanExporter
 from redis.asyncio import Redis
 
@@ -57,10 +57,10 @@ def create_app(
             try:
                 checkpointer: BaseCheckpointSaver[str] = InMemorySaver()
                 if resolved_settings.checkpoint_database_url:
-                    os.environ.setdefault("LANGGRAPH_STRICT_MSGPACK", "true")
                     postgres_checkpointer = await stack.enter_async_context(
                         AsyncPostgresSaver.from_conn_string(
-                            resolved_settings.checkpoint_database_url
+                            resolved_settings.checkpoint_database_url,
+                            serde=JsonPlusSerializer(allowed_msgpack_modules=None),
                         )
                     )
                     await postgres_checkpointer.setup()

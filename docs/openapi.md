@@ -93,10 +93,13 @@ human approval interrupt.
 | Field | Type | Required | Constraints and behavior |
 | --- | --- | --- | --- |
 | `task` | string | yes | 3 to 10,000 characters |
-| `thread_id` | string or null | no | Caller ID or generated UUID; maximum 128 characters |
 | `risk_level` | enum | no | `low`, `medium`, or `high`; default `low` |
 | `require_approval` | boolean | no | Forces approval for any risk; default `false` |
 | `max_iterations` | integer | no | 2 through 32; default 8 |
+
+The service generates the run ID and gets the tenant from the authenticated
+reviewer configuration. Client-supplied `thread_id` and `tenant_id` fields are
+rejected as unknown fields.
 
 Example request:
 
@@ -114,6 +117,7 @@ A high-risk run returns a checkpoint rather than a fabricated result:
 ```json
 {
   "thread_id": "4974451f-1874-47d5-98cb-7c4be34f617e",
+  "tenant_id": "tenant-alpha",
   "status": "pending_approval",
   "task": "Deploy a payment API",
   "result": null,

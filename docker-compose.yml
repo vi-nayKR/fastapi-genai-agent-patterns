@@ -10,7 +10,6 @@ services:
       AGENT_PATTERNS_REDIS_URL: redis://redis:6379/0
       AGENT_PATTERNS_CACHE_REQUIRED: "true"
       AGENT_PATTERNS_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-      LANGGRAPH_STRICT_MSGPACK: "true"
     ports:
       - "8002:8002"
     depends_on:

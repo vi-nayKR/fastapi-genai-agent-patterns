@@ -46,5 +46,4 @@ jobs:
         env:
           TEST_REDIS_URL: redis://localhost:6379/0
           TEST_CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agent_patterns
-          LANGGRAPH_STRICT_MSGPACK: "true"
       - run: python -m scripts.benchmark_cache --iterations 500 --target-ms 5

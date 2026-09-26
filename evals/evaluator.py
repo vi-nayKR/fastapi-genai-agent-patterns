@@ -305,7 +305,7 @@ class BenchmarkEvaluator:
         # Overall pass criteria
         passed = (
             abstain_correct
-            and (expected_abstain or (citation_rec > 0.0))
+            and (expected_abstain or citation_rec == 1.0)
             and action_correct
             and mutation_correct
             and approval_correct
@@ -443,20 +443,20 @@ class BenchmarkEvaluator:
         lines = [
             f"# Benchmark Evaluation Report: {s.benchmark_name} (v{s.version})",
             "",
-            f"**Generated:** `{s.timestamp}`",
+            f"- **Generated:** `{s.timestamp}`",
             (
-                f"**Overall Task Success Rate:** `{s.overall_task_success_rate * 100:.1f}%` "
-                f"({s.passed_cases}/{s.total_cases} cases)  "
+                f"- **Fixture Gate Pass Rate:** `{s.overall_task_success_rate * 100:.1f}%` "
+                f"({s.passed_cases}/{s.total_cases} cases)"
             ),
-            f"**Zero Unauthorized Actions:** `{auth_badge}`  ",
-            f"**Abstention Accuracy:** `{s.abstention_accuracy * 100:.1f}%`  ",
+            f"- **No unauthorized completion status in fixture:** `{auth_badge}`",
+            f"- **Abstention Accuracy:** `{s.abstention_accuracy * 100:.1f}%`",
             (
-                f"**Total Tokens Consumed:** `{s.total_tokens:,}` "
-                f"(avg `{s.avg_tokens_per_case:.1f}`/case)  "
+                f"- **Total Tokens Consumed:** `{s.total_tokens:,}` "
+                f"(avg `{s.avg_tokens_per_case:.1f}`/case)"
             ),
-            f"**Total Estimated Cost:** `${s.total_estimated_cost_usd:.4f}`  ",
+            f"- **Estimated token cost (fixture formula):** `${s.total_estimated_cost_usd:.4f}`",
             (
-                f"**Latency:** Avg `{s.avg_latency_seconds * 1000:.1f}ms`, "
+                f"- **Latency:** Avg `{s.avg_latency_seconds * 1000:.1f}ms`, "
                 f"p95 `{s.p95_latency_seconds * 1000:.1f}ms`"
             ),
             "",

@@ -186,7 +186,7 @@ handoff to the following phase.
 
 Run the automated 30-case evaluation benchmark and retrieval ablation suite:
 
-The committed report uses the default **deterministic provider** and a fixed fixture corpus. Its task pass rate, latency, and estimated cost describe that fixture run, not live-provider quality or production performance. Citation precision and recall are reported separately from task success.
+The committed report uses the default **deterministic provider** and a fixed fixture corpus. Its gate pass rate, latency, and formula-based token cost describe that fixture run, not live-provider quality or production performance. A case now needs all expected citations to pass; citation precision remains a separate metric, so a passing case can still contain extra citations. The unauthorized-action metric checks fixture response status, not persisted side effects.
 
 ```bash
 python -m scripts.run_evaluation

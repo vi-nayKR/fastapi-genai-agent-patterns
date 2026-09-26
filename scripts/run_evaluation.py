@@ -70,7 +70,7 @@ def main() -> int:
     s = report.summary
     print(f"Benchmark:                     {s.benchmark_name} (v{s.version})")
     print(
-        f"Overall Task Success Rate:     {s.overall_task_success_rate * 100:.1f}% "
+        f"Fixture Gate Pass Rate:        {s.overall_task_success_rate * 100:.1f}% "
         f"({s.passed_cases}/{s.total_cases})"
     )
     print(f"Abstention Accuracy:           {s.abstention_accuracy * 100:.1f}%")
@@ -83,7 +83,7 @@ def main() -> int:
         f"{s.mutation_classification_accuracy * 100:.1f}%"
     )
     auth_status = "PASS (0)" if s.unauthorized_actions == 0 else f"FAIL ({s.unauthorized_actions})"
-    print(f"Zero Unauthorized Actions:     {auth_status}")
+    print(f"No Unauthorized Completion:    {auth_status} (fixture status only)")
     print(
         f"Latency (Avg / p95):           {s.avg_latency_seconds * 1000:.1f}ms / "
         f"{s.p95_latency_seconds * 1000:.1f}ms"
@@ -107,7 +107,7 @@ def main() -> int:
         print("❌ Benchmark execution failed quality gates.", file=sys.stderr)
         return 1
 
-    print("✅ Benchmark execution passed all verification criteria.")
+    print("✅ Fixture benchmark passed its configured gates.")
     return 0
 
 

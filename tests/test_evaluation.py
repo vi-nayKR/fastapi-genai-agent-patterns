@@ -38,6 +38,9 @@ async def test_full_benchmark_run_achieves_target_success_and_zero_unauthorized(
     assert summary.action_classification_accuracy == 1.0
     assert summary.mutation_classification_accuracy == 1.0
     assert summary.unauthorized_actions == 0
+    missed_citation = next(row for row in report.case_results if row.case_id == "CASE-002")
+    assert missed_citation.citation_recall == 0.5
+    assert missed_citation.passed is False
 
 
 @pytest.mark.asyncio
@@ -110,7 +113,7 @@ def test_markdown_report_rendering_contains_key_sections(
     assert "# Benchmark Evaluation Report" in md
     assert "Retrieval Engine Ablation Suite" in md
     assert "Hybrid (BM25 + Dense RRF)" in md
-    assert "Zero Unauthorized Actions" in md
+    assert "No unauthorized completion status in fixture" in md
     assert f"lexical {ablations['lexical'].mrr:.4f}" in md
     assert f"hybrid {ablations['hybrid'].mrr:.4f}" in md
     assert "outperforming" not in md

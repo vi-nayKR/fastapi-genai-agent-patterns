@@ -18,6 +18,7 @@ class AgentState(TypedDict, total=False):
     require_approval: bool
     approval_decision: bool | None
     approval_feedback: str | None
+    approval_reviewer_id: str | None
     planned_agents: list[AgentName]
     completed_agents: Annotated[list[AgentName], operator.add]
     partial_results: dict[str, str]

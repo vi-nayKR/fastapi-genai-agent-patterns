@@ -3,16 +3,39 @@ services:
     build: .
     environment:
       AGENT_PATTERNS_ENVIRONMENT: local
+      AGENT_PATTERNS_CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agent_patterns
+      AGENT_PATTERNS_REVIEWER_API_KEY: ${AGENT_PATTERNS_REVIEWER_API_KEY:?copy .env.example to .env and set a reviewer key}
+      AGENT_PATTERNS_REVIEWER_ID: ${AGENT_PATTERNS_REVIEWER_ID:-local-reviewer}
+      AGENT_PATTERNS_TENANT_ID: ${AGENT_PATTERNS_TENANT_ID:-tenant-alpha}
       AGENT_PATTERNS_REDIS_URL: redis://redis:6379/0
       AGENT_PATTERNS_CACHE_REQUIRED: "true"
       AGENT_PATTERNS_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+      LANGGRAPH_STRICT_MSGPACK: "true"
     ports:
       - "8002:8002"
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
       otel-collector:
         condition: service_started
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: agent_patterns
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agent_patterns"]
+      interval: 2s
+      timeout: 1s
+      retries: 20
 
   redis:
     image: redis:8.2-alpine
@@ -41,4 +64,5 @@ services:
       - "16686:16686"
 
 volumes:
+  postgres-data:
   redis-data:

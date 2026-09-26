@@ -10,6 +10,12 @@ from agent_patterns.app import create_app
 from agent_patterns.config import Settings
 from agent_patterns.providers.openai_provider import OpenAIProvider
 
+TEST_REVIEWER_TOKEN = "test-reviewer-token"
+
+
+def _client(app: Any) -> TestClient:
+    return TestClient(app, headers={"Authorization": f"Bearer {TEST_REVIEWER_TOKEN}"})
+
 
 def _mock_chat_response(content: str) -> dict[str, Any]:
     return {
@@ -66,12 +72,13 @@ def test_real_provider_produces_structured_outputs() -> None:
 
     settings = Settings(
         environment="test",
+        reviewer_api_key=TEST_REVIEWER_TOKEN,
         provider_mode="openai",
         provider_api_key="test-key",
     )
     app = create_app(settings, provider=custom_provider)
 
-    with TestClient(app) as test_client:
+    with _client(app) as test_client:
         response = test_client.post(
             "/api/v1/agents/runs",
             json={"task": "Implement and test an authenticated API"},
@@ -111,12 +118,13 @@ def test_real_provider_failure_does_not_silently_fallback() -> None:
 
     settings = Settings(
         environment="test",
+        reviewer_api_key=TEST_REVIEWER_TOKEN,
         provider_mode="openai",
         provider_api_key="test-key",
     )
     app = create_app(settings, provider=failing_provider)
 
-    with TestClient(app) as test_client:
+    with _client(app) as test_client:
         response = test_client.post(
             "/api/v1/agents/runs",
             json={"task": "Implement a critical database change"},
@@ -149,12 +157,13 @@ def test_real_provider_auth_failure_fails_fast() -> None:
 
     settings = Settings(
         environment="test",
+        reviewer_api_key=TEST_REVIEWER_TOKEN,
         provider_mode="openai",
         provider_api_key="bad-key",
     )
     app = create_app(settings, provider=auth_failing_provider)
 
-    with TestClient(app) as test_client:
+    with _client(app) as test_client:
         response = test_client.post(
             "/api/v1/agents/runs",
             json={"task": "Implement an authorized function"},
@@ -181,12 +190,13 @@ def test_real_provider_malformed_json_fails_explicitly() -> None:
 
     settings = Settings(
         environment="test",
+        reviewer_api_key=TEST_REVIEWER_TOKEN,
         provider_mode="openai",
         provider_api_key="test-key",
     )
     app = create_app(settings, provider=malformed_provider)
 
-    with TestClient(app) as test_client:
+    with _client(app) as test_client:
         response = test_client.post(
             "/api/v1/agents/runs",
             json={"task": "Research compliance policy"},
@@ -221,12 +231,13 @@ def test_real_provider_streaming_emits_tokens_and_structured_terminal() -> None:
 
     settings = Settings(
         environment="test",
+        reviewer_api_key=TEST_REVIEWER_TOKEN,
         provider_mode="openai",
         provider_api_key="test-key",
     )
     app = create_app(settings, provider=custom_provider)
 
-    with TestClient(app) as test_client:
+    with _client(app) as test_client:
         with test_client.stream(
             "POST",
             "/api/v1/agents/runs/stream",

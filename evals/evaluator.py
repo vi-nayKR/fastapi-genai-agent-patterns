@@ -240,12 +240,11 @@ class BenchmarkEvaluator:
         start_time = time.perf_counter()
         req = AgentRunRequest(
             task=case.query,
-            tenant_id=case.tenant_id,
             risk_level="high" if case.requires_approval else "low",
             require_approval=case.requires_approval,
         )
 
-        response = await runtime.start(req)
+        response = await runtime.start(req, tenant_id=case.tenant_id)
         latency = time.perf_counter() - start_time
 
         # Extract structured outputs

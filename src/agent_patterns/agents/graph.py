@@ -148,10 +148,15 @@ async def request_approval(state: AgentState) -> AgentState:
     approved = cast(bool, decision["approved"])
     feedback_value = decision.get("feedback")
     feedback = str(feedback_value) if feedback_value is not None else None
+    reviewer_id = str(decision.get("reviewer_id", "unknown"))
     return {
         "approval_decision": approved,
         "approval_feedback": feedback,
-        "audit_log": ["approval:approved" if approved else "approval:rejected"],
+        "approval_reviewer_id": reviewer_id,
+        "audit_log": [
+            "approval:approved" if approved else "approval:rejected",
+            f"approval:reviewer:{reviewer_id}",
+        ],
     }
 
 

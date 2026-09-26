@@ -7,9 +7,54 @@ from fastapi.testclient import TestClient
 from agent_patterns.app import create_app
 from agent_patterns.config import Settings
 
+TEST_REVIEWER_TOKEN = "test-reviewer-token"
+
 
 def client() -> TestClient:
-    return TestClient(create_app(Settings(environment="test")))
+    return TestClient(
+        create_app(Settings(environment="test", reviewer_api_key=TEST_REVIEWER_TOKEN)),
+        headers={"Authorization": f"Bearer {TEST_REVIEWER_TOKEN}"},
+    )
+
+
+def test_agent_api_requires_authenticated_reviewer_and_rejects_client_tenant() -> None:
+    app = create_app(Settings(environment="test", reviewer_api_key=TEST_REVIEWER_TOKEN))
+    with TestClient(app) as unauthenticated:
+        rejected = unauthenticated.post(
+            "/api/v1/agents/runs", json={"task": "Deploy an API", "risk_level": "high"}
+        )
+        rejected_token = unauthenticated.post(
+            "/api/v1/agents/runs",
+            headers={"Authorization": "Bearer wrong-token"},
+            json={"task": "Deploy an API", "risk_level": "high"},
+        )
+        rejected_cache_write = unauthenticated.post(
+            "/api/v1/cache/entries",
+            json={"namespace": "support", "model": "test", "prompt": "secret", "response": {}},
+        )
+    assert rejected.status_code == 401
+    assert rejected_token.status_code == 401
+    assert rejected_cache_write.status_code == 401
+
+    with client() as authenticated:
+        rejected_tenant = authenticated.post(
+            "/api/v1/agents/runs",
+            json={"task": "Deploy an API", "risk_level": "high", "tenant_id": "tenant-beta"},
+        )
+        started = authenticated.post(
+            "/api/v1/agents/runs", json={"task": "Deploy an API", "risk_level": "high"}
+        )
+    assert rejected_tenant.status_code == 422
+    assert started.json()["tenant_id"] == "tenant-alpha"
+
+
+def test_agent_api_requires_configured_reviewer_key() -> None:
+    app = create_app(Settings(environment="test", reviewer_api_key=""))
+    with TestClient(app) as unconfigured:
+        response = unconfigured.post(
+            "/api/v1/agents/runs", json={"task": "Deploy an API", "risk_level": "high"}
+        )
+    assert response.status_code == 503
 
 
 def test_supervisor_delegates_to_relevant_workers() -> None:
@@ -43,6 +88,10 @@ def test_high_risk_run_interrupts_and_resumes() -> None:
             f"/api/v1/agents/runs/{thread_id}/approval",
             json={"approved": True, "feedback": "Change window confirmed"},
         )
+        replay = test_client.post(
+            f"/api/v1/agents/runs/{thread_id}/approval",
+            json={"approved": True, "feedback": "Change window confirmed"},
+        )
 
     assert started.json()["status"] == "pending_approval"
     assert started.json()["approval"]["risk_level"] == "high"
@@ -50,7 +99,9 @@ def test_high_risk_run_interrupts_and_resumes() -> None:
     assert resumed.json()["status"] == "completed"
     assert resumed.json()["completed_agents"] == ["research", "coding", "compliance"]
     assert "approval:approved" in resumed.json()["audit_log"]
+    assert "approval:reviewer:local-reviewer" in resumed.json()["audit_log"]
     assert resumed.json()["structured_result"]["compliance"]["requires_human_approval"] is True
+    assert replay.status_code == 409
 
 
 def test_reviewer_can_reject_run() -> None:
@@ -115,4 +166,3 @@ def test_iteration_limit_halts_supervisor() -> None:
     body = response.json()
     assert body["status"] == "failed"
     assert "iteration_limit" in str(body["audit_log"])
-

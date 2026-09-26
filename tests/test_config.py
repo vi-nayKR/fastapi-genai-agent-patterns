@@ -17,3 +17,20 @@ def test_settings_are_immutable() -> None:
 def test_settings_validate_cache_threshold() -> None:
     with pytest.raises(ValidationError):
         Settings(cache_semantic_distance_threshold=3.0)
+
+
+def test_deployment_settings_require_persistent_checkpoints_and_nonempty_reviewer_key() -> None:
+    with pytest.raises(ValidationError):
+        Settings(environment="production")
+    with pytest.raises(ValidationError):
+        Settings(
+            environment="staging",
+            checkpoint_database_url="postgresql://localhost/agents",
+            reviewer_api_key="",
+        )
+    settings = Settings(
+        environment="staging",
+        checkpoint_database_url="postgresql://localhost/agents",
+        reviewer_api_key="test-token",
+    )
+    assert settings.reviewer_api_key is not None

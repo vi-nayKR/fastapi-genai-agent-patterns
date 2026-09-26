@@ -5,6 +5,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, StateSnapshot
 from opentelemetry import trace
@@ -46,12 +47,13 @@ class AgentRuntime:
         settings: Settings | None = None,
         provider: LLMProvider | None = None,
         retriever: HybridRetriever | None = None,
+        checkpointer: BaseCheckpointSaver[str] | None = None,
     ) -> None:
         self._tracer = tracer or trace.get_tracer(__name__)
         self._settings = settings or get_settings()
         self._provider = provider or create_provider(self._settings, tracer=self._tracer)
         self._retriever = retriever or HybridRetriever(OPERATIONAL_CORPUS, tracer=self._tracer)
-        self._checkpointer = InMemorySaver()
+        self._checkpointer = checkpointer or InMemorySaver()
         self._graph = build_agent_graph(
             self._checkpointer,
             provider=self._provider,
@@ -64,14 +66,14 @@ class AgentRuntime:
         await self._provider.close()
 
     @staticmethod
-    def _config(thread_id: str) -> RunnableConfig:
-        return {"configurable": {"thread_id": thread_id}}
+    def _config(thread_id: str, tenant_id: str) -> RunnableConfig:
+        return {"configurable": {"thread_id": f"{tenant_id}:{thread_id}"}}
 
-    async def start(self, request: AgentRunRequest) -> AgentRunResponse:
-        thread_id = request.thread_id or str(uuid4())
+    async def start(self, request: AgentRunRequest, *, tenant_id: str) -> AgentRunResponse:
+        thread_id = str(uuid4())
         initial: AgentState = {
             "thread_id": thread_id,
-            "tenant_id": request.tenant_id,
+            "tenant_id": tenant_id,
             "task": request.task,
             "risk_level": request.risk_level,
             "require_approval": request.require_approval,
@@ -88,8 +90,8 @@ class AgentRuntime:
             span.set_attribute("agent.thread_id", thread_id)
             span.set_attribute("agent.risk_level", request.risk_level)
             span.set_attribute("agent.approval_required", request.require_approval)
-            await self._graph.ainvoke(initial, self._config(thread_id))
-            result = await self.get(thread_id)
+            await self._graph.ainvoke(initial, self._config(thread_id, tenant_id))
+            result = await self.get(thread_id, tenant_id=tenant_id)
             span.set_attribute("agent.status", result.status)
             return result
 
@@ -97,31 +99,40 @@ class AgentRuntime:
         self,
         thread_id: str,
         approval: ApprovalRequest,
+        *,
+        tenant_id: str,
+        reviewer_id: str,
     ) -> AgentRunResponse:
         with self._tracer.start_as_current_span("agent.approval.resume") as span:
             span.set_attribute("agent.thread_id", thread_id)
             span.set_attribute("agent.approved", approval.approved)
-            snapshot = await self._snapshot(thread_id)
+            snapshot = await self._snapshot(thread_id, tenant_id)
             if not snapshot.interrupts:
                 raise RunNotPendingApprovalError("Run is not waiting for approval")
 
             command: Command[Any] = Command(
-                resume={"approved": approval.approved, "feedback": approval.feedback}
+                resume={
+                    "approved": approval.approved,
+                    "feedback": approval.feedback,
+                    "reviewer_id": reviewer_id,
+                }
             )
-            await self._graph.ainvoke(command, self._config(thread_id))
-            result = await self.get(thread_id)
+            await self._graph.ainvoke(command, self._config(thread_id, tenant_id))
+            result = await self.get(thread_id, tenant_id=tenant_id)
             span.set_attribute("agent.status", result.status)
             return result
 
-    async def get(self, thread_id: str) -> AgentRunResponse:
-        snapshot = await self._snapshot(thread_id)
+    async def get(self, thread_id: str, *, tenant_id: str) -> AgentRunResponse:
+        snapshot = await self._snapshot(thread_id, tenant_id)
         return self._to_response(thread_id, snapshot)
 
-    async def stream(self, request: AgentRunRequest) -> AsyncIterator[AgentEvent]:
-        thread_id = request.thread_id or str(uuid4())
+    async def stream(
+        self, request: AgentRunRequest, *, tenant_id: str
+    ) -> AsyncIterator[AgentEvent]:
+        thread_id = str(uuid4())
         initial: AgentState = {
             "thread_id": thread_id,
-            "tenant_id": request.tenant_id,
+            "tenant_id": tenant_id,
             "task": request.task,
             "risk_level": request.risk_level,
             "require_approval": request.require_approval,
@@ -139,7 +150,7 @@ class AgentRuntime:
             yield AgentEvent(type="run_started", thread_id=thread_id)
             stream = self._graph.astream(
                 initial,
-                self._config(thread_id),
+                self._config(thread_id, tenant_id),
                 stream_mode=["custom", "updates"],
             )
             async for mode, raw_event in stream:
@@ -151,12 +162,12 @@ class AgentRuntime:
                         token=raw_event.get("token"),
                     )
 
-            run = await self.get(thread_id)
+            run = await self.get(thread_id, tenant_id=tenant_id)
             span.set_attribute("agent.status", run.status)
             yield AgentEvent(type=run.status, thread_id=thread_id, run=run)
 
-    async def _snapshot(self, thread_id: str) -> StateSnapshot:
-        snapshot = await self._graph.aget_state(self._config(thread_id))
+    async def _snapshot(self, thread_id: str, tenant_id: str) -> StateSnapshot:
+        snapshot = await self._graph.aget_state(self._config(thread_id, tenant_id))
         if not snapshot.values:
             raise RunNotFoundError(f"Run {thread_id} was not found")
         return snapshot

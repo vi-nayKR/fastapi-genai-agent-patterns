@@ -1,11 +1,15 @@
 """FastAPI application factory."""
 
+import os
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from opentelemetry.sdk.trace.export import SpanExporter
 from redis.asyncio import Redis
 
@@ -34,11 +38,6 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
-        app.state.agent_runtime = AgentRuntime(
-            tracer,
-            settings=resolved_settings,
-            provider=provider,
-        )
         redis = Redis.from_url(
             resolved_settings.redis_url,
             decode_responses=False,
@@ -53,12 +52,32 @@ def create_app(
             distance_threshold=resolved_settings.cache_semantic_distance_threshold,
             tracer=tracer,
         )
-        try:
-            yield
-        finally:
-            await app.state.agent_runtime.close()
-            await redis.aclose()
-            tracer_provider.shutdown()
+        async with AsyncExitStack() as stack:
+            runtime: AgentRuntime | None = None
+            try:
+                checkpointer: BaseCheckpointSaver[str] = InMemorySaver()
+                if resolved_settings.checkpoint_database_url:
+                    os.environ.setdefault("LANGGRAPH_STRICT_MSGPACK", "true")
+                    postgres_checkpointer = await stack.enter_async_context(
+                        AsyncPostgresSaver.from_conn_string(
+                            resolved_settings.checkpoint_database_url
+                        )
+                    )
+                    await postgres_checkpointer.setup()
+                    checkpointer = postgres_checkpointer
+                runtime = AgentRuntime(
+                    tracer,
+                    settings=resolved_settings,
+                    provider=provider,
+                    checkpointer=checkpointer,
+                )
+                app.state.agent_runtime = runtime
+                yield
+            finally:
+                if runtime is not None:
+                    await runtime.close()
+                await redis.aclose()
+                tracer_provider.shutdown()
 
     app = FastAPI(
         title="FastAPI and LangGraph Production Agent Patterns",

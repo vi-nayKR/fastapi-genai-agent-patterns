@@ -2,9 +2,10 @@
 
 from typing import cast
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from redis.exceptions import RedisError
 
+from agent_patterns.api.auth import reviewer_identity
 from agent_patterns.cache import RedisSemanticCache
 from agent_patterns.schemas import (
     CacheEvictionResponse,
@@ -15,6 +16,10 @@ from agent_patterns.schemas import (
 )
 
 router = APIRouter(prefix="/cache", tags=["cache"])
+
+
+def _tenant_namespace(tenant_id: str, namespace: str) -> str:
+    return f"{len(tenant_id)}:{tenant_id}:{namespace}"
 
 
 def _cache(request: Request) -> RedisSemanticCache:
@@ -35,9 +40,15 @@ def _unavailable(exc: RedisError) -> HTTPException:
     summary="Write an exact and semantic cache entry",
     responses={503: {"description": "Redis is unavailable"}},
 )
-async def put_entry(body: CachePutRequest, request: Request) -> dict[str, str]:
+async def put_entry(
+    body: CachePutRequest,
+    request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),  # noqa: B008
+) -> dict[str, str]:
     try:
-        key = await _cache(request).put(body.namespace, body.model, body.prompt, body.response)
+        key = await _cache(request).put(
+            _tenant_namespace(identity[1], body.namespace), body.model, body.prompt, body.response
+        )
     except RedisError as exc:
         raise _unavailable(exc) from exc
     return {"key": key}
@@ -57,9 +68,12 @@ async def lookup(
     body: CacheLookupRequest,
     request: Request,
     response: Response,
+    identity: tuple[str, str] = Depends(reviewer_identity),  # noqa: B008
 ) -> CacheLookupResponse:
     try:
-        hit = await _cache(request).get(body.namespace, body.model, body.prompt)
+        hit = await _cache(request).get(
+            _tenant_namespace(identity[1], body.namespace), body.model, body.prompt
+        )
     except RedisError as exc:
         raise _unavailable(exc) from exc
     if hit is None:
@@ -81,9 +95,15 @@ async def lookup(
     summary="Evict one canonical prompt",
     responses={503: {"description": "Redis is unavailable"}},
 )
-async def evict_entry(body: CacheLookupRequest, request: Request) -> CacheEvictionResponse:
+async def evict_entry(
+    body: CacheLookupRequest,
+    request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),  # noqa: B008
+) -> CacheEvictionResponse:
     try:
-        deleted = await _cache(request).evict_exact(body.namespace, body.model, body.prompt)
+        deleted = await _cache(request).evict_exact(
+            _tenant_namespace(identity[1], body.namespace), body.model, body.prompt
+        )
     except RedisError as exc:
         raise _unavailable(exc) from exc
     return CacheEvictionResponse(deleted=int(deleted))
@@ -100,9 +120,12 @@ async def evict_namespace(
     namespace: str,
     request: Request,
     model: str | None = None,
+    identity: tuple[str, str] = Depends(reviewer_identity),  # noqa: B008
 ) -> CacheEvictionResponse:
     try:
-        deleted = await _cache(request).evict_namespace(namespace, model)
+        deleted = await _cache(request).evict_namespace(
+            _tenant_namespace(identity[1], namespace), model
+        )
     except RedisError as exc:
         raise _unavailable(exc) from exc
     return CacheEvictionResponse(deleted=deleted)
@@ -115,7 +138,10 @@ async def evict_namespace(
     summary="Read cache counters",
     responses={503: {"description": "Redis is unavailable"}},
 )
-async def cache_stats(request: Request) -> CacheStatsResponse:
+async def cache_stats(
+    request: Request,
+    _identity: tuple[str, str] = Depends(reviewer_identity),  # noqa: B008
+) -> CacheStatsResponse:
     try:
         counters = await _cache(request).stats()
     except RedisError as exc:

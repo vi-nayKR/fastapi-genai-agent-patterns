@@ -32,9 +32,17 @@ Every HTTP response includes `x-request-id`. A caller may supply that header and
 the service preserves it; otherwise the service returns a generated UUID. The
 same request participates in W3C trace propagation through `traceparent`.
 
-The reference application does not implement authentication. A production
-deployment must enforce authentication and tenant authorization before exposing
-agent or cache routes.
+Agent and cache operations use HTTP Bearer authentication. Configure
+`AGENT_PATTERNS_REVIEWER_API_KEY`, `AGENT_PATTERNS_REVIEWER_ID`, and
+`AGENT_PATTERNS_TENANT_ID`; the configured identity supplies the tenant for agent
+checkpoints and prefixes cache namespaces. Request bodies cannot choose a tenant
+or thread ID. Missing credentials return `401`, while a missing configured key
+returns `503`. Health and readiness probes remain public.
+
+This reference maps one token to one reviewer and tenant. Staging and production
+also require `AGENT_PATTERNS_CHECKPOINT_DATABASE_URL`; local/test runs without a
+database use in-memory checkpoints. Multi-user deployments should derive reviewer
+and tenant IDs from verified identity-provider claims.
 
 ## Health operations
 

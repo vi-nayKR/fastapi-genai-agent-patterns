@@ -29,7 +29,9 @@ async def test_agent_run_contains_specialist_child_spans() -> None:
     provider, exporter = provider_and_exporter()
     runtime = AgentRuntime(provider.get_tracer("test"))
 
-    result = await runtime.start(AgentRunRequest(task="Implement a Python API test"))
+    result = await runtime.start(
+        AgentRunRequest(task="Implement a Python API test"), tenant_id="tenant-alpha"
+    )
 
     spans = {span.name: span for span in exporter.get_finished_spans()}
     assert result.status == "completed"

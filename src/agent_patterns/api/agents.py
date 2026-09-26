@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from typing import cast
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from agent_patterns.agents.runtime import (
@@ -11,6 +11,7 @@ from agent_patterns.agents.runtime import (
     RunNotFoundError,
     RunNotPendingApprovalError,
 )
+from agent_patterns.api.auth import reviewer_identity
 from agent_patterns.schemas import AgentRunRequest, AgentRunResponse, ApprovalRequest
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -26,10 +27,14 @@ def _runtime(request: Request) -> AgentRuntime:
     operation_id="startAgentRun",
     summary="Start a checkpointed agent run",
 )
-async def start_run(body: AgentRunRequest, request: Request) -> AgentRunResponse:
+async def start_run(
+    body: AgentRunRequest,
+    request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),
+) -> AgentRunResponse:
     """Execute until completion or a durable human approval interrupt."""
 
-    return await _runtime(request).start(body)
+    return await _runtime(request).start(body, tenant_id=identity[1])
 
 
 @router.get(
@@ -39,11 +44,15 @@ async def start_run(body: AgentRunRequest, request: Request) -> AgentRunResponse
     summary="Inspect a checkpointed agent run",
     responses={404: {"description": "Thread ID was not found"}},
 )
-async def get_run(thread_id: str, request: Request) -> AgentRunResponse:
+async def get_run(
+    thread_id: str,
+    request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),
+) -> AgentRunResponse:
     """Read the latest checkpointed run state."""
 
     try:
-        return await _runtime(request).get(thread_id)
+        return await _runtime(request).get(thread_id, tenant_id=identity[1])
     except RunNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -62,11 +71,17 @@ async def approve_run(
     thread_id: str,
     body: ApprovalRequest,
     request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),
 ) -> AgentRunResponse:
     """Resume a suspended graph with an explicit reviewer decision."""
 
     try:
-        return await _runtime(request).resume(thread_id, body)
+        return await _runtime(request).resume(
+            thread_id,
+            body,
+            tenant_id=identity[1],
+            reviewer_id=identity[0],
+        )
     except RunNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except RunNotPendingApprovalError as exc:
@@ -85,11 +100,15 @@ async def approve_run(
         }
     },
 )
-async def stream_run(body: AgentRunRequest, request: Request) -> StreamingResponse:
+async def stream_run(
+    body: AgentRunRequest,
+    request: Request,
+    identity: tuple[str, str] = Depends(reviewer_identity),
+) -> StreamingResponse:
     """Stream worker tokens and the terminal checkpoint as SSE events."""
 
     async def event_source() -> AsyncIterator[str]:
-        async for event in _runtime(request).stream(body):
+        async for event in _runtime(request).stream(body, tenant_id=identity[1]):
             yield f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
     return StreamingResponse(event_source(), media_type="text/event-stream")

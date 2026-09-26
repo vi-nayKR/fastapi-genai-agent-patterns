@@ -183,6 +183,15 @@ LANGGRAPH_STRICT_MSGPACK=true pytest tests/integration
 python -m scripts.benchmark_cache --iterations 1000 --target-ms 5
 ```
 
+## Sanitized trace examples
+
+[`approval-and-timeout.json`](docs/trace_examples/approval-and-timeout.json) shows
+tenant-scoped retrieval and provider spans, a high-risk run pausing and completing
+after reviewer approval, and a synthetic provider timeout failing the run. The
+artifact omits prompts, credentials, reviewer IDs, and run IDs. It is a local
+fixture capture: the token cost is a blended estimate, latency is not an SLO, and
+the time between the pending and approval requests is not measured.
+
 ## Configuration
 
 All settings use the `AGENT_PATTERNS_` prefix. The important deployment values

@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 from opentelemetry import trace
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import Status, StatusCode, Tracer
 from pydantic import BaseModel, ValidationError
 
 from agent_patterns.providers.base import (
@@ -177,6 +177,7 @@ class OpenAIProvider(LLMProvider):
             except Exception as exc:
                 span.record_exception(exc)
                 span.set_attribute("provider.status", "error")
+                span.set_status(Status(StatusCode.ERROR, exc.__class__.__name__))
                 raise
 
             choice = data["choices"][0]["message"]["content"]

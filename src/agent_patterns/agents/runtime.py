@@ -9,7 +9,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, StateSnapshot
 from opentelemetry import trace
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import Status, StatusCode, Tracer
 
 from agent_patterns.agents.graph import build_agent_graph
 from agent_patterns.agents.state import AgentState, RunStatus
@@ -89,10 +89,15 @@ class AgentRuntime:
         with self._tracer.start_as_current_span("agent.run") as span:
             span.set_attribute("agent.thread_id", thread_id)
             span.set_attribute("agent.risk_level", request.risk_level)
-            span.set_attribute("agent.approval_required", request.require_approval)
+            span.set_attribute(
+                "agent.approval_required",
+                request.require_approval or request.risk_level == "high",
+            )
             await self._graph.ainvoke(initial, self._config(thread_id, tenant_id))
             result = await self.get(thread_id, tenant_id=tenant_id)
             span.set_attribute("agent.status", result.status)
+            if result.status == "failed":
+                span.set_status(Status(StatusCode.ERROR, "agent run failed"))
             return result
 
     async def resume(
@@ -120,6 +125,8 @@ class AgentRuntime:
             await self._graph.ainvoke(command, self._config(thread_id, tenant_id))
             result = await self.get(thread_id, tenant_id=tenant_id)
             span.set_attribute("agent.status", result.status)
+            if result.status == "failed":
+                span.set_status(Status(StatusCode.ERROR, "agent run failed"))
             return result
 
     async def get(self, thread_id: str, *, tenant_id: str) -> AgentRunResponse:

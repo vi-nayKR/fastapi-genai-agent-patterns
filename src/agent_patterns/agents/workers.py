@@ -6,7 +6,7 @@ from typing import cast
 
 from langgraph.config import get_stream_writer
 from opentelemetry import trace
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import Status, StatusCode, Tracer
 from pydantic import BaseModel
 
 from agent_patterns.agents.state import AgentName, AgentState
@@ -102,6 +102,7 @@ def build_worker(
             except ProviderError as exc:
                 span.record_exception(exc)
                 span.set_attribute("agent.status", "failed")
+                span.set_status(Status(StatusCode.ERROR, exc.__class__.__name__))
                 # Do NOT silently fall back in real provider mode; fail explicitly
                 return {
                     "status": "failed",
@@ -113,6 +114,7 @@ def build_worker(
             except Exception as exc:
                 span.record_exception(exc)
                 span.set_attribute("agent.status", "failed")
+                span.set_status(Status(StatusCode.ERROR, exc.__class__.__name__))
                 return {
                     "status": "failed",
                     "error_details": f"Unexpected error in {agent} worker: {exc}",

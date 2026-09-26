@@ -2,6 +2,7 @@
 
 from typing import cast
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from opentelemetry.sdk.trace import TracerProvider
@@ -13,6 +14,7 @@ from agent_patterns.agents.runtime import AgentRuntime
 from agent_patterns.app import create_app
 from agent_patterns.cache.redis_cache import RedisSemanticCache
 from agent_patterns.config import Settings
+from agent_patterns.providers.openai_provider import OpenAIProvider
 from agent_patterns.schemas import AgentRunRequest
 from tests.fakes import FakeRedis
 
@@ -41,6 +43,47 @@ async def test_agent_run_contains_specialist_child_spans() -> None:
     assert spans["agent.worker.coding"].parent is not None
     assert spans["agent.worker.coding"].parent.span_id == spans["agent.run"].context.span_id
     provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_approval_and_timeout_spans_report_their_actual_state() -> None:
+    tracer_provider, exporter = provider_and_exporter()
+    tracer = tracer_provider.get_tracer("test")
+    runtime = AgentRuntime(tracer)
+    pending = await runtime.start(
+        AgentRunRequest(task="Deploy the payment API", risk_level="high"),
+        tenant_id="tenant-alpha",
+    )
+    await runtime.close()
+
+    async def timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("synthetic timeout", request=request)
+
+    openai_provider = OpenAIProvider(
+        api_key="test-key",
+        max_retries=0,
+        tracer=tracer,
+        transport=httpx.MockTransport(timeout),
+    )
+    failing_runtime = AgentRuntime(tracer, provider=openai_provider)
+    failed = await failing_runtime.start(
+        AgentRunRequest(task="Deploy the payment API", risk_level="high"),
+        tenant_id="tenant-alpha",
+    )
+    await failing_runtime.close()
+
+    spans = exporter.get_finished_spans()
+    pending_span = next(span for span in spans if span.name == "agent.run")
+    error_span = next(
+        span
+        for span in spans
+        if span.name == "provider.chat.completions" and span.status.status_code.name == "ERROR"
+    )
+    assert pending.status == "pending_approval"
+    assert pending_span.attributes["agent.approval_required"] is True
+    assert failed.status == "failed"
+    assert error_span.status.status_code.name == "ERROR"
+    tracer_provider.shutdown()
 
 
 @pytest.mark.asyncio

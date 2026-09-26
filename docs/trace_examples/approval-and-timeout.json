@@ -1,0 +1,281 @@
+{
+  "scope": "Sanitized local fixture traces; no live model provider or external action was used.",
+  "latency_boundary": "Durations are single local captures, not an SLO or production benchmark.",
+  "cost_boundary": {
+    "formula": "total fixture tokens * $0.30 / 1,000,000",
+    "fixture_estimate_usd": 5.79e-05,
+    "note": "A blended estimate only; not provider billing or measured live-model cost."
+  },
+  "approval_scenario": {
+    "provider_mode": "deterministic fixture",
+    "run_statuses": [
+      "pending_approval",
+      "completed"
+    ],
+    "local_elapsed_ms": 22.443,
+    "human_wait_duration_ms": null,
+    "human_wait_note": "The service records pending and resumed spans but does not measure time between reviewer requests.",
+    "total_fixture_tokens": 193,
+    "spans": [
+      {
+        "name": "POST /api/v1/agents/runs",
+        "parent": null,
+        "duration_ms": 6.524,
+        "status": "unset",
+        "attributes": {
+          "http.route": "/api/v1/agents/runs"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs http receive",
+        "parent": "POST /api/v1/agents/runs",
+        "duration_ms": 0.009,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "agent.run",
+        "parent": "POST /api/v1/agents/runs",
+        "duration_ms": 5.541,
+        "status": "unset",
+        "attributes": {
+          "agent.approval_required": true,
+          "agent.risk_level": "high",
+          "agent.status": "pending_approval"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "agent.worker.research",
+        "parent": "agent.run",
+        "duration_ms": 0.512,
+        "status": "unset",
+        "attributes": {
+          "agent.name": "research"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "retrieval.search",
+        "parent": "agent.worker.research",
+        "duration_ms": 0.26,
+        "status": "unset",
+        "attributes": {
+          "retrieval.candidate_count": 16,
+          "retrieval.mode": "hybrid",
+          "retrieval.tenant_id": "tenant-alpha",
+          "retrieval.top_k": 3
+        },
+        "exception_types": []
+      },
+      {
+        "name": "provider.chat.completions",
+        "parent": "agent.worker.research",
+        "duration_ms": 0.072,
+        "status": "unset",
+        "attributes": {
+          "llm.usage.completion_tokens": 9,
+          "llm.usage.prompt_tokens": 125,
+          "llm.usage.total_tokens": 134,
+          "provider.model": "deterministic-fixture",
+          "provider.name": "deterministic",
+          "provider.status": "success",
+          "provider.streaming": false
+        },
+        "exception_types": []
+      },
+      {
+        "name": "agent.worker.coding",
+        "parent": "agent.run",
+        "duration_ms": 0.332,
+        "status": "unset",
+        "attributes": {
+          "agent.name": "coding"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "provider.chat.completions",
+        "parent": "agent.worker.coding",
+        "duration_ms": 0.023,
+        "status": "unset",
+        "attributes": {
+          "llm.usage.completion_tokens": 21,
+          "llm.usage.prompt_tokens": 16,
+          "llm.usage.total_tokens": 37,
+          "provider.model": "deterministic-fixture",
+          "provider.name": "deterministic",
+          "provider.status": "success",
+          "provider.streaming": false
+        },
+        "exception_types": []
+      },
+      {
+        "name": "agent.worker.compliance",
+        "parent": "agent.run",
+        "duration_ms": 0.115,
+        "status": "unset",
+        "attributes": {
+          "agent.name": "compliance"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "provider.chat.completions",
+        "parent": "agent.worker.compliance",
+        "duration_ms": 0.015,
+        "status": "unset",
+        "attributes": {
+          "llm.usage.completion_tokens": 6,
+          "llm.usage.prompt_tokens": 16,
+          "llm.usage.total_tokens": 22,
+          "provider.model": "deterministic-fixture",
+          "provider.name": "deterministic",
+          "provider.status": "success",
+          "provider.streaming": false
+        },
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs http send",
+        "parent": "POST /api/v1/agents/runs",
+        "duration_ms": 0.011,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs http send",
+        "parent": "POST /api/v1/agents/runs",
+        "duration_ms": 0.003,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs http send",
+        "parent": "POST /api/v1/agents/runs",
+        "duration_ms": 0.002,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "parent": null,
+        "duration_ms": 1.764,
+        "status": "unset",
+        "attributes": {
+          "http.route": "/api/v1/agents/runs/{thread_id}/approval"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs/{thread_id}/approval http receive",
+        "parent": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "duration_ms": 0.005,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "agent.approval.resume",
+        "parent": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "duration_ms": 1.004,
+        "status": "unset",
+        "attributes": {
+          "agent.approved": true,
+          "agent.status": "completed"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs/{thread_id}/approval http send",
+        "parent": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "duration_ms": 0.008,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs/{thread_id}/approval http send",
+        "parent": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "duration_ms": 0.003,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      },
+      {
+        "name": "POST /api/v1/agents/runs/{thread_id}/approval http send",
+        "parent": "POST /api/v1/agents/runs/{thread_id}/approval",
+        "duration_ms": 0.002,
+        "status": "unset",
+        "attributes": {},
+        "exception_types": []
+      }
+    ]
+  },
+  "timeout_scenario": {
+    "provider_mode": "OpenAI-compatible adapter with a synthetic ReadTimeout",
+    "run_status": "failed",
+    "local_elapsed_ms": 3.3,
+    "external_call": false,
+    "spans": [
+      {
+        "name": "agent.run",
+        "parent": null,
+        "duration_ms": 3.275,
+        "status": "error",
+        "attributes": {
+          "agent.approval_required": true,
+          "agent.risk_level": "high",
+          "agent.status": "failed"
+        },
+        "exception_types": []
+      },
+      {
+        "name": "agent.worker.research",
+        "parent": "agent.run",
+        "duration_ms": 1.289,
+        "status": "error",
+        "attributes": {
+          "agent.name": "research",
+          "agent.status": "failed"
+        },
+        "exception_types": [
+          "agent_patterns.providers.base.ProviderTimeoutError"
+        ]
+      },
+      {
+        "name": "retrieval.search",
+        "parent": "agent.worker.research",
+        "duration_ms": 0.247,
+        "status": "unset",
+        "attributes": {
+          "retrieval.candidate_count": 16,
+          "retrieval.mode": "hybrid",
+          "retrieval.tenant_id": "tenant-alpha",
+          "retrieval.top_k": 3
+        },
+        "exception_types": []
+      },
+      {
+        "name": "provider.chat.completions",
+        "parent": "agent.worker.research",
+        "duration_ms": 0.898,
+        "status": "error",
+        "attributes": {
+          "provider.model": "gpt-4o-mini",
+          "provider.name": "openai",
+          "provider.status": "error",
+          "provider.streaming": false
+        },
+        "exception_types": [
+          "agent_patterns.providers.base.ProviderTimeoutError"
+        ]
+      }
+    ]
+  }
+}

@@ -443,7 +443,7 @@ class BenchmarkEvaluator:
         lines = [
             f"# Benchmark Evaluation Report: {s.benchmark_name} (v{s.version})",
             "",
-            f"**Generated:** `{s.timestamp}`  ",
+            f"**Generated:** `{s.timestamp}`",
             (
                 f"**Overall Task Success Rate:** `{s.overall_task_success_rate * 100:.1f}%` "
                 f"({s.passed_cases}/{s.total_cases} cases)  "
@@ -463,6 +463,9 @@ class BenchmarkEvaluator:
             "---",
             "",
             "## 1. Retrieval Engine Ablation Suite",
+            "",
+            "Retrieval ablation uses a fixed fixture corpus; these scores do not measure "
+            "live-model answer quality.",
             "",
             (
                 "Comparative evaluation across **Dense Semantic Similarity**, "
@@ -495,12 +498,14 @@ class BenchmarkEvaluator:
         lines.extend(
             [
                 "",
-                "> [!TIP]",
                 (
-                    f"> **Hybrid Advantage:** Hybrid RRF achieves Recall@3 of "
-                    f"`{abl['hybrid'].recall_at_3 * 100:.1f}%` and MRR of "
-                    f"`{abl['hybrid'].mrr:.4f}`, outperforming dense-only "
-                    f"(`{abl['dense'].mrr:.4f}`) and lexical-only (`{abl['lexical'].mrr:.4f}`)."
+                    f"On these {abl['hybrid'].evaluated_cases} answerable fixture cases, "
+                    f"Recall@3 is dense {abl['dense'].recall_at_3 * 100:.1f}%, "
+                    f"lexical {abl['lexical'].recall_at_3 * 100:.1f}%, "
+                    f"and hybrid {abl['hybrid'].recall_at_3 * 100:.1f}%. "
+                    f"MRR is dense {abl['dense'].mrr:.4f}, "
+                    f"lexical {abl['lexical'].mrr:.4f}, "
+                    f"and hybrid {abl['hybrid'].mrr:.4f}."
                 ),
                 "",
                 "---",

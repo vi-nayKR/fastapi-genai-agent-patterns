@@ -111,3 +111,6 @@ def test_markdown_report_rendering_contains_key_sections(
     assert "Retrieval Engine Ablation Suite" in md
     assert "Hybrid (BM25 + Dense RRF)" in md
     assert "Zero Unauthorized Actions" in md
+    assert f"lexical {ablations['lexical'].mrr:.4f}" in md
+    assert f"hybrid {ablations['hybrid'].mrr:.4f}" in md
+    assert "outperforming" not in md

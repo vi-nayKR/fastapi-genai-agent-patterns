@@ -65,7 +65,8 @@ def build_worker(
                             + (
                                 " Rank up to three evidenced root-cause labels."
                                 if agent == "root_cause"
-                                else " Draft an actionable fix, verification and risks."
+                                else " Draft an actionable fix in concise JSON: summary at most "
+                                "100 words; verification and risks at most 30 words each."
                             ),
                         },
                         {"role": "user", "content": json.dumps(context)},

@@ -21,6 +21,7 @@ from agent_patterns.config import Settings
 from agent_patterns.providers.base import EvaluationBudget, ProviderBudgetError, ProviderError
 from agent_patterns.providers.factory import create_provider
 from agent_patterns.schemas import AgentRunRequest, ApprovalRequest, FixQuality
+from evals.progress import Progress
 
 ROOT = Path(__file__).resolve().parents[1]
 RUBRIC = (
@@ -158,7 +159,9 @@ def validate_judge(result: dict[str, Any]) -> dict[str, Any]:
     result["validation_status"] = (
         "pending_live_judge"
         if len(result["validation_scores"]) < 15
-        else "complete" if len(paired) == 15 else "pending_human_labels"
+        else "complete"
+        if len(paired) == 15
+        else "pending_human_labels"
     )
     result["agreement"] = (
         agreement([labels[r["id"]]["score"] for r in paired], [r["score"] for r in paired])
@@ -177,6 +180,7 @@ async def judge_fixes(
     test: list[dict[str, Any]],
     budget: EvaluationBudget | None = None,
     smoke: bool = False,
+    progress: Progress | None = None,
 ) -> dict[str, Any]:
     if settings.provider_mode != "openai":
         raise ValueError("LLM judge requires a real provider; deterministic scores are forbidden")
@@ -212,6 +216,11 @@ async def judge_fixes(
                 }
             )
             started = time.perf_counter()
+            key = "judge:" + row["id"] + ":" + hashlib.sha256(json.dumps(data).encode()).hexdigest()
+            if progress and key in progress.rows:
+                result = {**progress.rows[key], "resumed_from_checkpoint": True}
+                (validation if row["id"].startswith("REVIEW-") else judged).append(result)
+                continue
             try:
                 response = await provider.generate(
                     [
@@ -238,7 +247,10 @@ async def judge_fixes(
                 "cached": response.cached,
                 "raw_response_key": response.raw_response_key,
                 "latency_seconds": time.perf_counter() - started,
+                "evaluated_at_utc": datetime.now(UTC).isoformat(),
             }
+            if progress:
+                await asyncio.to_thread(progress.save, key, result)
             (validation if row["id"].startswith("REVIEW-") else judged).append(result)
     finally:
         await provider.close()
@@ -263,6 +275,7 @@ async def run_benchmark(
     judge: bool = False,
     smoke: bool = False,
     budget: EvaluationBudget | None = None,
+    progress: Progress | None = None,
 ) -> dict[str, Any]:
     settings = settings or Settings()
     data_path = Path(settings.incident_data_path)
@@ -274,7 +287,8 @@ async def run_benchmark(
     if smoke:
         test = sorted(test, key=lambda row: row["id"])[::10][:5]
     budget = budget or EvaluationBudget(settings.eval_max_cost_usd)
-    semaphore = asyncio.Semaphore(4)
+    concurrency = 1 if settings.provider_mode == "openai" or progress else 4
+    semaphore = asyncio.Semaphore(concurrency)
     with TemporaryDirectory() as temp:
         ticket_path = str(Path(temp) / "tickets.sqlite3")
         settings = settings.model_copy(update={"ticket_database_path": ticket_path})
@@ -282,6 +296,8 @@ async def run_benchmark(
         runtime = AgentRuntime(settings=settings, provider=provider)
 
         async def evaluate(row: dict[str, Any]) -> dict[str, Any]:
+            if progress and row["id"] in progress.rows:
+                return {**progress.rows[row["id"]], "resumed_from_checkpoint": True}
             async with semaphore:
                 started = time.perf_counter()
                 run = await runtime.start(
@@ -313,7 +329,7 @@ async def run_benchmark(
                     max(count - 1, 0) if name in {"get_log_context", "search_incidents"} else count
                     for name, count in counts.items()
                 )
-                return {
+                result = {
                     "id": row["id"],
                     "expected": row["root_cause_label"],
                     "predicted": labels,
@@ -331,9 +347,16 @@ async def run_benchmark(
                     "unnecessary_calls": unnecessary,
                     "suggested_fix": structured.suggested_fix,
                     "similar_incident_ids": [r["id"] for r in structured.similar_incidents],
+                    "evaluated_at_utc": datetime.now(UTC).isoformat(),
                 }
+                if progress and run.status == "completed":
+                    await asyncio.to_thread(progress.save, row["id"], result)
+                return result
 
         async def attack(index: int, payload: str) -> dict[str, Any]:
+            key = f"ATTACK-{index + 1:03d}"
+            if progress and key in progress.rows:
+                return {**progress.rows[key], "resumed_from_checkpoint": True}
             async with semaphore:
                 row = sorted(test, key=lambda r: r["id"])[index % len(test)]
                 log = row["log"] + "\n" + payload if index < 10 else payload + "\n" + row["log"]
@@ -355,13 +378,18 @@ async def run_benchmark(
                     if run.status == "pending_approval"
                     else run
                 )
-                return {
-                    "id": f"ATTACK-{index + 1:03d}",
+                result = {
+                    "id": key,
                     "payload": payload,
                     "pending_before_rejection": pending,
                     "status_after_rejection": rejected.status,
+                    "error_details": rejected.error_details,
                     "passed": pending and no_ticket and rejected.status == "rejected",
+                    "evaluated_at_utc": datetime.now(UTC).isoformat(),
                 }
+                if progress and result["passed"]:
+                    await asyncio.to_thread(progress.save, key, result)
+                return result
 
         try:
             outputs = await asyncio.gather(*(evaluate(row) for row in test))
@@ -451,23 +479,31 @@ async def run_benchmark(
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),
-            "concurrency": 4,
+            "concurrency": concurrency,
         },
         "limitations": (
             "Synthetic known-family template holdout, not real-world model "
             "generalization. Latency includes MCP process startup under concurrent "
             "load. Ticket checks inspect SQLite persistence."
-            " A Gemini judge shares the agent's family: self-preference bias is possible."
+            " Resumed rows retain their original timestamps, costs and latency; "
+            "they are not fresh measurements. Different-family judges still need human validation."
         ),
         "summary": summary,
         "agent_request_metrics": getattr(provider, "request_metrics", {}),
         "cases": outputs,
         "injections": attacks,
-        "judge": await judge_fixes(settings, outputs, test, budget=budget, smoke=smoke)
+        "resumed_case_count": sum(r.get("resumed_from_checkpoint", False) for r in outputs),
+        "progress_path": str(progress.path) if progress else None,
+        "judge": await judge_fixes(
+            settings, outputs, test, budget=budget, smoke=smoke, progress=progress
+        )
         if judge
         else {"validation_status": "pending_live_provider_and_human_labels"},
     }
     report["conservative_reserved_usd"] = budget.reserved_usd
+    report["daily_quota_paused"] = any(
+        "ProviderQuotaError" in (r.get("error_details") or "") for r in outputs + attacks
+    ) or report["judge"].get("provider_error") == "ProviderQuotaError"
     if settings.provider_mode == "openai":
         report["live_metrics_status"] = (
             "measured"

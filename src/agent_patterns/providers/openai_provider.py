@@ -20,12 +20,14 @@ from agent_patterns.providers.base import (
     ProviderAuthenticationError,
     ProviderError,
     ProviderMalformedOutputError,
+    ProviderQuotaError,
     ProviderRateLimitError,
     ProviderResponse,
     ProviderTimeoutError,
     ProviderUnavailableError,
     ProviderUsage,
 )
+from agent_patterns.providers.quota import TokenQuota
 
 
 class OpenAIProvider(LLMProvider):
@@ -48,6 +50,7 @@ class OpenAIProvider(LLMProvider):
         output_usd_per_million: float = 10,
         min_interval_seconds: float = 0,
         retry_backoff_seconds: float = 1,
+        quota: TokenQuota | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -65,6 +68,8 @@ class OpenAIProvider(LLMProvider):
         self._retry_backoff = retry_backoff_seconds
         self._throttle_lock = asyncio.Lock()
         self._next_request = 0.0
+        self._quota = quota
+        self._quota_error: ProviderQuotaError | None = None
         self.request_metrics: dict[str, float] = {
             "http_attempts": 0,
             "rate_limit_responses": 0,
@@ -72,6 +77,7 @@ class OpenAIProvider(LLMProvider):
             "backoff_seconds": 0,
             "throttle_wait_seconds": 0,
             "cache_hits": 0,
+            "token_quota_wait_seconds": 0,
         }
 
         headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -112,15 +118,38 @@ class OpenAIProvider(LLMProvider):
 
         for attempt in range(attempts):
             try:
+                if self._quota_error:
+                    raise self._quota_error
+                reservation = None
                 # ponytail: per-process pacing; use a shared limiter for multiple replicas.
                 async with self._throttle_lock:
                     loop = asyncio.get_running_loop()
                     wait = max(0, self._next_request - loop.time())
                     self.request_metrics["throttle_wait_seconds"] += wait
                     await asyncio.sleep(wait)
+                    if self._quota:
+                        tokens = (
+                            sum(len(m["content"].encode()) for m in payload["messages"])
+                            + 128
+                            + payload.get("max_completion_tokens", payload.get("max_tokens", 700))
+                        )
+                        while reservation is None:
+                            reservation, wait = await asyncio.to_thread(self._quota.reserve, tokens)
+                            if wait:
+                                self.request_metrics["token_quota_wait_seconds"] += wait
+                                await asyncio.sleep(wait)
                     self._next_request = loop.time() + self._min_interval
                 self.request_metrics["http_attempts"] += 1
                 response = await self._client.post(url, json=payload, timeout=req_timeout)
+                if self._quota and reservation is not None:
+                    total = (
+                        response.json().get("usage", {}).get("total_tokens", tokens)
+                        if response.status_code == 200
+                        else 0 if response.status_code in (401, 403, 404, 429) else tokens
+                    )
+                    if type(total) is not int or total < 0:
+                        total = tokens
+                    await asyncio.to_thread(self._quota.settle, reservation, total)
                 if response.status_code == 200:
                     return response
 
@@ -144,6 +173,14 @@ class OpenAIProvider(LLMProvider):
                         f"Rate limit exceeded (429): {response.text}",
                         retry_after=retry_after,
                     )
+                    if any(
+                        marker in response.text.lower()
+                        for marker in ("tokens per day", "tokens/day", "daily limit")
+                    ):
+                        self._quota_error = ProviderQuotaError(
+                            "Provider daily quota reached; rerun after reset"
+                        )
+                        raise self._quota_error
                     delay = max(retry_after or 0, self._retry_backoff * (2**attempt))
                 elif response.status_code >= 500:
                     last_error = ProviderUnavailableError(
@@ -163,11 +200,16 @@ class OpenAIProvider(LLMProvider):
             except httpx.ReadTimeout as exc:
                 last_error = ProviderTimeoutError(f"Provider request timed out: {exc}")
                 delay = 0.25 * (2**attempt)
+            except ProviderQuotaError as exc:
+                self._quota_error = exc
+                raise
             except (ProviderAuthenticationError, ProviderError):
                 raise
 
             # If this was not the last attempt, back off before retrying
-            if "max_tokens" in payload and not isinstance(last_error, ProviderRateLimitError):
+            if ("max_tokens" in payload or "max_completion_tokens" in payload) and not isinstance(
+                last_error, ProviderRateLimitError
+            ):
                 break  # A timeout/5xx could already be billed; retry only rejected 429s.
             if attempt < attempts - 1:
                 wait = min(max(delay, 0), 60.0)
@@ -201,7 +243,9 @@ class OpenAIProvider(LLMProvider):
                 "temperature": self._temperature,
             }
             if max_output_tokens is not None:
-                payload["max_tokens"] = max_output_tokens
+                payload[
+                    "max_completion_tokens" if "api.groq.com" in self._base_url else "max_tokens"
+                ] = max_output_tokens
             if self._seed is not None:
                 payload["seed"] = self._seed
             if "generativelanguage.googleapis.com" in self._base_url:
@@ -210,6 +254,8 @@ class OpenAIProvider(LLMProvider):
                 payload["reasoning_effort"] = (
                     "none" if self._model.startswith("gemini-2.5-flash") else "low"
                 )
+            elif "api.groq.com" in self._base_url:
+                payload["reasoning_effort"] = "none" if self._model.startswith("qwen/") else "low"
 
             if response_schema is not None:
                 payload["response_format"] = {"type": "json_object"}
@@ -239,6 +285,8 @@ class OpenAIProvider(LLMProvider):
                     )
                     data = envelope["response"]
                 else:
+                    if self._quota_error:
+                        raise self._quota_error
                     if self._budget is not None:
                         prompt_bound = (
                             sum(len(m["content"].encode()) for m in formatted_messages) + 128

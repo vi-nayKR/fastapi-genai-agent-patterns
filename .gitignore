@@ -12,3 +12,4 @@ build/
 uv.lock
 data/*.sqlite3*
 evals/raw/
+results/resume/

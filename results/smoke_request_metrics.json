@@ -1,0 +1,33 @@
+{
+  "run_date_utc": "2026-10-06T08:02:27.696663+00:00",
+  "model": "openai/gpt-oss-120b",
+  "temperature": 0.1,
+  "judge_model": "qwen/qwen3.8-27b",
+  "judge_temperature": 0.0,
+  "source": "Request counters printed by the successful five-case smoke execution before its cached replay.",
+  "agent_requests": {
+    "http_attempts": 5,
+    "rate_limit_responses": 0,
+    "retries": 0,
+    "backoff_seconds": 0,
+    "throttle_wait_seconds": 63.40599999999904,
+    "cache_hits": 5,
+    "token_quota_wait_seconds": 99.93048478126525
+  },
+  "judge_requests": {
+    "http_attempts": 5,
+    "rate_limit_responses": 0,
+    "retries": 0,
+    "backoff_seconds": 0,
+    "throttle_wait_seconds": 78.3760000000002,
+    "cache_hits": 0,
+    "token_quota_wait_seconds": 0
+  },
+  "replay": {
+    "resumed_cases": 5,
+    "agent_http_attempts": 0,
+    "judge_http_attempts": 0
+  },
+  "projected_full_eval_cost_usd": 0.08149369,
+  "cost_method": "Configured token-price estimate, not a billing receipt; cache hits cost zero. Free-tier requests may be free despite conservative paid-price accounting."
+}

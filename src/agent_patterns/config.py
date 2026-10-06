@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     provider_max_retries: int = Field(default=2, ge=0, le=5)
     provider_min_interval_seconds: float = Field(default=12, ge=0, le=300)
     provider_retry_backoff_seconds: float = Field(default=12, gt=0, le=60)
+    provider_tokens_per_minute: int = Field(default=8000, ge=1)
+    provider_tokens_per_day: int = Field(default=200000, ge=1)
+    provider_quota_database: str = "data/provider_quotas.sqlite3"
 
     @model_validator(mode="after")
     def require_deployment_security(self) -> "Settings":

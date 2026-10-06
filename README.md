@@ -98,69 +98,72 @@ Each record contains a log/stack excerpt, service, known cause and resolution no
 
 ## Live provider and blind judge validation
 
-Copy `.env.example` to `.env` and fill the blank `AGENT_PATTERNS_PROVIDER_API_KEY`
-with your AI Studio key. Keep keys out of Git. The exact live configuration is:
+Copy `.env.example` to `.env`; set `AGENT_PATTERNS_PROVIDER_API_KEY` to your
+Groq key. The configured pair is `openai/gpt-oss-120b` for the agent at 0.1 and
+`qwen/qwen3.8-27b` for the judge at 0. Exact variables:
 
 ```dotenv
 AGENT_PATTERNS_PROVIDER_MODE=openai
 AGENT_PATTERNS_PROVIDER_API_KEY=
-AGENT_PATTERNS_PROVIDER_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-AGENT_PATTERNS_PROVIDER_MODEL=gemini-3.7-flash
-AGENT_PATTERNS_PROVIDER_JUDGE_MODEL=gemini-3.7-flash
+AGENT_PATTERNS_PROVIDER_BASE_URL=https://api.groq.com/openai/v1
+AGENT_PATTERNS_PROVIDER_MODEL=openai/gpt-oss-120b
+AGENT_PATTERNS_PROVIDER_JUDGE_MODEL=qwen/qwen3.8-27b
 AGENT_PATTERNS_PROVIDER_TEMPERATURE=0.1
 AGENT_PATTERNS_PROVIDER_JUDGE_TEMPERATURE=0
-AGENT_PATTERNS_PROVIDER_SEED_SUPPORTED=false
-AGENT_PATTERNS_PROVIDER_MIN_INTERVAL_SECONDS=12
-AGENT_PATTERNS_PROVIDER_RETRY_BACKOFF_SECONDS=12
-AGENT_PATTERNS_PROVIDER_MAX_RETRIES=3
-AGENT_PATTERNS_PROVIDER_TIMEOUT_SECONDS=120
+AGENT_PATTERNS_PROVIDER_MIN_INTERVAL_SECONDS=20
+AGENT_PATTERNS_PROVIDER_TOKENS_PER_MINUTE=8000
+AGENT_PATTERNS_PROVIDER_TOKENS_PER_DAY=200000
+AGENT_PATTERNS_PROVIDER_QUOTA_DATABASE=data/provider_quotas.sqlite3
 AGENT_PATTERNS_PROVIDER_CACHE_DIR=evals/raw
 AGENT_PATTERNS_EVAL_MAX_COST_USD=2.90
 ```
 
-IDs were checked against Google's [model catalogue](https://ai.google.dev/gemini-api/docs/models)
-on 2026-10-06. [Current pricing](https://ai.google.dev/gemini-api/docs/pricing)
-lists Flash as free on the free tier, but Pro has **no free API tier**.
-A free-only key may run the agent but cannot complete the requested judge run.
-The command reports the failed smoke stage and leaves the full run pending;
-it does not enable billing or substitute a model.
-The selected Flash pair uses conservative paid prices per million input/output
-tokens of $0.75/$3.75 (through 2026-12-31). Optional Pro uses $2/$12 below 200k.
-Cost fields are configured-price estimates, not billing receipts; free requests
-can have zero actual charges. Update prices when models or tariffs change.
-
-The [OpenAI-compatible endpoint](https://ai.google.dev/gemini-api/docs/openai)
-receives low reasoning effort for Gemini 3 models and no thinking for
-2.5 Flash (its fixed low-thinking budget exceeds the bounded judge output cap),
-agent temperature 0.1 and judge temperature 0.
-No seed is sent because seed support is not guaranteed by the Gemini compatibility
-docs. Model IDs, temperatures, seed support and UTC run date are recorded in JSON.
-Both models are Gemini: **same-family self-preference bias is a judge limitation**;
-the blind human comparison measures agreement, not independence.
+The [Groq catalogue](https://console.groq.com/docs/models) lists GPT-OSS at
+$0.15/$0.60 and Qwen at $0.80/$4.00 per million input/output tokens.
+These are configured-price estimates, not billing receipts. The
+[free-tier limits](https://console.groq.com/docs/rate-limits) are 8K tokens/minute
+and 200K tokens/day per model. The adapter uses bounded `max_completion_tokens`,
+low GPT-OSS reasoning and disabled Qwen reasoning per the
+[reasoning documentation](https://console.groq.com/docs/reasoning).
+Credentials are not passed into MCP subprocesses or cached headers.
 
 ```bash
+# Five incidents and five judge calls first:
+python -m scripts.run_evaluation --live --smoke-only
+# Resume smoke and then the full evaluation, including across days:
 make eval-live
 # Windows equivalent: python -m scripts.run_evaluation --live
 ```
 
-This command first runs five held-out cases and five judge calls, writes
-`results/smoke.json`, and prints projected full-run cost. An incomplete smoke test
-or a projection exceeding the $2.90 cap stops before the full run. The same budget
-covers smoke plus full evaluation. Full results go in `results/triage_live.json`.
-No credentials means a preflight exit with no API calls; live metrics remain pending.
+Completed cases, approval probes and judge scores are atomically checkpointed in
+`results/resume/<campaign-id>/progress.json`. A campaign ID hashes endpoint,
+models, temperatures, seed configuration, prices, corpus, frozen review cases,
+and relevant source code. Changes to those inputs start a separate campaign.
+The $2.90 cost reservation ledger persists beside it, so a new day or restart
+does not reset the campaign cost cap. Run one evaluation process per campaign.
+The minimum interval and quota limits can change without discarding progress.
 
-Pacing starts at one request per 12 seconds, adjustable to the project's
-[AI Studio quotas](https://ai.google.dev/gemini-api/docs/rate-limits).
-429 responses retry with exponential backoff and numeric Retry-After, bounded to
-60 seconds and the configured retry count. Budgeted timeout/5xx requests fail
-without retry because they might already be billed. Pacing is per process;
-multiple service replicas need a shared limiter.
-Raw successful responses are cached atomically in the ignored `evals/raw/`
-directory by endpoint and complete request payload. Identical reruns reuse them,
-including model, temperature and schema; errors are never cached. Keep this local
-cache to avoid repeated calls. Concurrent identical first-time misses can issue
-multiple calls; reruns use the completed cache. Credentials are never stored in
-cache headers or passed to MCP subprocesses.
+Raw responses in the ignored `evals/raw/` directory also preserve partial cases:
+if root-cause generation succeeded but fix drafting failed, restarting reuses the
+root-cause response. Completed case measurements retain their original UTC date,
+cost, steps and latency; resumed rows are marked, not counted as fresh calls.
+Smoke cases are shared with the full run, and the cost cap covers both stages.
+
+A per-model SQLite ledger in `data/provider_quotas.sqlite3` reserves a conservative
+UTF-8 prompt bound plus maximum output before each HTTP attempt, then adjusts to
+reported usage. It enforces rolling 60-second and 24-hour windows across local
+processes. Unknown interrupted calls retain reservations. 20 seconds is a floor;
+token limits may require longer waits. Daily exhaustion exits with progress saved;
+rerun the same command after quota reset. Quotas consumed by other applications
+are unknown locally; Groq's 429 response remains authoritative. Minute-limit 429s
+use bounded exponential backoff and numeric Retry-After. Explicit daily-limit
+429s stop rather than waiting overnight. Keep the progress, raw cache and quota
+database across days. Deleting them loses resume/accounting information.
+
+`results/smoke.json` records the cost projection and request/cache/wait counts.
+Incomplete smoke or an over-cap projection blocks the full run. Full reports go
+in `results/triage_live.json`, including exact models, temperatures and UTC date.
+README live metrics remain pending until the full evaluation completes.
 
 The judge scores generated task fixes and the frozen [blind review set](evals/review/blind_review.md). Its rubric is: correct and actionable at the high end; right area but vague/partly wrong in the middle; wrong or harmful at the low end. The review set mixes agent outputs and deliberately altered proposals to test discrimination, rather than estimating the production distribution of quality. It contains no prefilled human labels or judge scores. Spend about a minute per case, then fill the human score, yes/no apply decision and one-line reason independently.
 
@@ -180,15 +183,13 @@ establish production generalization. Live metrics remain pending until the full
 run completes. Human judge validation remains pending until all 15 cases are
 independently labelled.
 
-The current evaluation uses API-listed `gemini-3.7-flash` for both roles after
-2.5 Flash was refused for new users, 3.8 Flash returned 503/timeouts, and Pro
-exhausted 429 retries. This is a **same-model judge**, with self-preference bias;
-it cannot serve as independent quality evidence. Both-Flash judging was authorized
-by the reviewer, followed by the authorized model-not-found replacement.
-The agent temperature is 0.1 and judge temperature is 0. Model errors and quota
-failures are retained in reports and block the full run after incomplete smoke.
-The selected model has free-tier access; conservative paid-price accounting uses
-$0.75 input / $3.75 output per million tokens through 2026-12-31.
+The current agent and judge use different families (GPT-OSS and Qwen), reducing
+same-family self-preference concerns. Qwen is a preview model and can change or
+be discontinued. The judge is not independent ground truth: all 15 blind human
+labels and an agreement comparison are still required. Historical Gemini smoke
+reports document prior quota/capacity failures and are not results for this pair.
+Resumed measurements can span days and include cached responses; their original
+dates and cache/resume markers must accompany performance claims.
 
 ## Service and approvals
 

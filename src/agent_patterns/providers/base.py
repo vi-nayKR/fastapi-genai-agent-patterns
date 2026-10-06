@@ -1,7 +1,10 @@
 """Base exceptions, protocols, and data models for model providers."""
 
+import json
+import math
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
@@ -48,15 +51,44 @@ class ProviderBudgetError(ProviderError):
     """Raised before a paid call would exceed the evaluation-wide budget."""
 
 
+class ProviderQuotaError(ProviderError):
+    """A daily quota stops this invocation; successful work remains resumable."""
+
+
+def write_json_atomic(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 @dataclass
 class EvaluationBudget:
     max_cost_usd: float
     reserved_usd: float = 0
+    state_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        if self.state_path and self.state_path.exists():
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+            self.reserved_usd = float(state["reserved_usd"])
+            if (
+                not math.isfinite(self.reserved_usd)
+                or not 0 <= self.reserved_usd <= self.max_cost_usd
+            ):
+                raise ValueError("Invalid persisted evaluation budget")
 
     def reserve(self, amount: float) -> None:
-        if amount < 0 or self.reserved_usd + amount > self.max_cost_usd:
+        if (
+            not math.isfinite(amount)
+            or amount < 0
+            or self.reserved_usd + amount > self.max_cost_usd
+        ):
             raise ProviderBudgetError("Evaluation cost cap reached before API call")
         # No awaits: reservation is atomic within the evaluation's single asyncio loop.
+        if self.state_path:
+            # ponytail: one eval process per campaign; use SQLite for concurrent campaigns.
+            write_json_atomic(self.state_path, {"reserved_usd": self.reserved_usd + amount})
         self.reserved_usd += amount
 
 

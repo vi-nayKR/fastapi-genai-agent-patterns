@@ -1,37 +1,37 @@
 {
   "provider_mode": "openai",
   "is_stub": false,
-  "live_metrics_status": "incomplete",
-  "run_date_utc": "2026-10-06T07:33:18.785973+00:00",
+  "live_metrics_status": "measured",
+  "run_date_utc": "2026-10-06T08:00:52.849065+00:00",
   "temperature": 0.1,
   "seed": null,
   "seed_supported": false,
   "evaluation_budget_cap_usd": 2.9,
-  "conservative_reserved_usd": 0.03402375,
+  "conservative_reserved_usd": 0.019048000000000002,
   "smoke": true,
-  "model": "gemini-3.7-flash",
+  "model": "openai/gpt-oss-120b",
   "usage_unit": "provider_tokens",
   "cost_method": "Configured token-price estimate, not a billing receipt; cache hits cost zero. Free-tier requests may be free despite conservative paid-price accounting.",
   "corpus_sha256": "ac43d042c836d00adf016734bf974caf74bd865079319b6224a42e6679e4250b",
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26300-SP0",
-    "concurrency": 4
+    "concurrency": 1
   },
-  "limitations": "Synthetic known-family template holdout, not real-world model generalization. Latency includes MCP process startup under concurrent load. Ticket checks inspect SQLite persistence. A Gemini judge shares the agent's family: self-preference bias is possible.",
+  "limitations": "Synthetic known-family template holdout, not real-world model generalization. Latency includes MCP process startup under concurrent load. Ticket checks inspect SQLite persistence. Resumed rows retain their original timestamps, costs and latency; they are not fresh measurements. Different-family judges still need human validation.",
   "summary": {
     "history_incidents": 200,
     "held_out_cases": 5,
-    "root_cause_top1": 0.6,
-    "root_cause_top3": 0.6,
-    "completed_cases": 0,
+    "root_cause_top1": 1,
+    "root_cause_top3": 1,
+    "completed_cases": 5,
     "tool_calls": 10,
     "tool_call_correctness": 1.0,
     "unnecessary_tool_calls": 0,
-    "mean_steps": 3.6,
-    "mean_latency_seconds": 31.640952599999583,
-    "p95_latency_seconds": 54.98598530000163,
-    "mean_estimated_cost_usd": 0.1192536,
+    "mean_steps": 4,
+    "mean_latency_seconds": 36.64652009999918,
+    "p95_latency_seconds": 60.12232919999951,
+    "mean_estimated_cost_usd": 0.0006135899999999999,
     "injection_cases": 0,
     "injection_pass_rate": null,
     "unauthorized_persisted_tickets": 0,
@@ -39,12 +39,13 @@
     "approval_replay_rejected": false
   },
   "agent_request_metrics": {
-    "http_attempts": 5,
+    "http_attempts": 0,
     "rate_limit_responses": 0,
     "retries": 0,
     "backoff_seconds": 0,
-    "throttle_wait_seconds": 48.0,
-    "cache_hits": 3
+    "throttle_wait_seconds": 0,
+    "cache_hits": 0,
+    "token_quota_wait_seconds": 0
   },
   "cases": [
     {
@@ -55,12 +56,12 @@
       ],
       "top1": true,
       "top3": true,
-      "status": "failed",
-      "error_details": "fix_drafter: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
-      "latency_seconds": 30.584911799998736,
+      "status": "completed",
+      "error_details": null,
+      "latency_seconds": 3.2038721999997506,
       "steps": 4,
-      "usage_counter": 1716,
-      "estimated_cost_usd": 0.146184,
+      "usage_counter": 3197,
+      "estimated_cost_usd": 0.00060465,
       "tool_calls": [
         {
           "tool": "get_log_context",
@@ -80,16 +81,23 @@
       ],
       "provider_calls": [
         {
-          "provider_model": "gemini-3.7-flash",
+          "provider_model": "openai/gpt-oss-120b",
           "cached": true,
-          "response_cost_usd": 0.0019230000000000002,
+          "response_cost_usd": 0.00032399999999999996,
           "billed_cost_usd": 0,
-          "raw_response_key": "495a31137ee8a3dd1f8556bfa78a04b82d2d879d56b701314a325fbec920da9c"
+          "raw_response_key": "49a7e00ab408ff3458e4ca45bf65f98e46c8f82902a432e56efd1786175b65d8"
+        },
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": false,
+          "response_cost_usd": 0.00028065,
+          "billed_cost_usd": 0.00028065,
+          "raw_response_key": "11d873b743eee57a98c13c67529998111ecf8b32b7f6ce609d3d3e28310cb570"
         }
       ],
       "correct_calls": 2,
       "unnecessary_calls": 0,
-      "suggested_fix": "\n\n",
+      "suggested_fix": "Implement context-managed SQLAlchemy sessions with proper rollback on exceptions, ensure all connections are returned to the pool, and configure a larger pool size or timeout as needed. Add monitoring for pool usage and health checks to detect exhaustion early.\nRun load tests confirming no TimeoutError and monitor pool metrics for stable usage.\nImproper session handling may introduce new leaks if not thoroughly tested.",
       "similar_incident_ids": [
         "INC-0012",
         "INC-0019",
@@ -97,20 +105,24 @@
         "INC-0005",
         "INC-0009",
         "INC-0011"
-      ]
+      ],
+      "evaluated_at_utc": "2026-10-06T07:55:03.016732+00:00",
+      "resumed_from_checkpoint": true
     },
     {
       "id": "INC-0071",
       "expected": "schema_drift",
-      "predicted": [],
-      "top1": false,
-      "top3": false,
-      "status": "failed",
-      "error_details": "root_cause: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
-      "latency_seconds": 21.125710599999366,
-      "steps": 3,
-      "usage_counter": 0,
-      "estimated_cost_usd": 0.076452,
+      "predicted": [
+        "schema_drift"
+      ],
+      "top1": true,
+      "top3": true,
+      "status": "completed",
+      "error_details": null,
+      "latency_seconds": 60.12232919999951,
+      "steps": 4,
+      "usage_counter": 3310,
+      "estimated_cost_usd": 0.00064275,
       "tool_calls": [
         {
           "tool": "get_log_context",
@@ -128,10 +140,25 @@
           "success": true
         }
       ],
-      "provider_calls": [],
+      "provider_calls": [
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": true,
+          "response_cost_usd": 0.00032625,
+          "billed_cost_usd": 0,
+          "raw_response_key": "e905619057bdc2ee8e3aa359777f21888289524dacc5c29f781dd1ae9ca7aadc"
+        },
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": false,
+          "response_cost_usd": 0.0003165,
+          "billed_cost_usd": 0.0003165,
+          "raw_response_key": "9c7eda60a19676df90f30454b30b157301510c3065fbec76e7bf6e98beebe7da"
+        }
+      ],
       "correct_calls": 2,
       "unnecessary_calls": 0,
-      "suggested_fix": "\n\n",
+      "suggested_fix": "Rollback the recent billing service deployment or pause it, then apply the pending migration that adds the `billing_region` column to the `accounts` table. Verify the migration runs successfully and the column exists before redeploying the updated code. Reference similar incidents INC-0061, INC-0059, INC-0068.\nRun a schema check for `accounts.billing_region` and execute a test request to load_account.\nPotential downtime during rollback and migration; ensure backups are current.",
       "similar_incident_ids": [
         "INC-0061",
         "INC-0059",
@@ -139,7 +166,9 @@
         "INC-0060",
         "INC-0065",
         "INC-0057"
-      ]
+      ],
+      "evaluated_at_utc": "2026-10-06T07:56:03.144334+00:00",
+      "resumed_from_checkpoint": true
     },
     {
       "id": "INC-0121",
@@ -149,12 +178,12 @@
       ],
       "top1": true,
       "top3": true,
-      "status": "failed",
-      "error_details": "fix_drafter: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
-      "latency_seconds": 43.797074999998586,
+      "status": "completed",
+      "error_details": null,
+      "latency_seconds": 19.943486299998767,
       "steps": 4,
-      "usage_counter": 1695,
-      "estimated_cost_usd": 0.146616,
+      "usage_counter": 3072,
+      "estimated_cost_usd": 0.00058545,
       "tool_calls": [
         {
           "tool": "get_log_context",
@@ -174,16 +203,23 @@
       ],
       "provider_calls": [
         {
-          "provider_model": "gemini-3.7-flash",
+          "provider_model": "openai/gpt-oss-120b",
           "cached": true,
-          "response_cost_usd": 0.00194025,
+          "response_cost_usd": 0.0003015,
           "billed_cost_usd": 0,
-          "raw_response_key": "716633b1ebaa23e727094bdbac235f26cbbd5a00c95636454b4cb118dde33bf2"
+          "raw_response_key": "308331b7497ca13ccfebd4e76490d84ede3f42a23bf729693b94a8282aa9ad46"
+        },
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": false,
+          "response_cost_usd": 0.00028395,
+          "billed_cost_usd": 0.00028395,
+          "raw_response_key": "b2846b7c3f66d89959f2ee081d70df31d35d34c222d276dd1c713e2895d61c4d"
         }
       ],
       "correct_calls": 2,
       "unnecessary_calls": 0,
-      "suggested_fix": "\n\n",
+      "suggested_fix": "Add the missing DATABASE_URL environment variable to the notifications deployment configuration, pulling the value from the secret store, and implement a startup validation that aborts deployment if required variables are absent. Update the CI/CD pipeline to enforce config checks before rollout.\nDeploy updated manifest to a staging environment; pod should start without KeyError and health probe passes.\nIf secret is incorrect, service may connect to wrong database; ensure secret accuracy before rollout.",
       "similar_incident_ids": [
         "INC-0116",
         "INC-0110",
@@ -191,20 +227,24 @@
         "INC-0104",
         "INC-0118",
         "INC-0109"
-      ]
+      ],
+      "evaluated_at_utc": "2026-10-06T07:56:23.094669+00:00",
+      "resumed_from_checkpoint": true
     },
     {
       "id": "INC-0171",
       "expected": "dns_failure",
-      "predicted": [],
-      "top1": false,
-      "top3": false,
-      "status": "failed",
-      "error_details": "root_cause: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
-      "latency_seconds": 7.711080299999594,
-      "steps": 3,
-      "usage_counter": 0,
-      "estimated_cost_usd": 0.074568,
+      "predicted": [
+        "dns_failure"
+      ],
+      "top1": true,
+      "top3": true,
+      "status": "completed",
+      "error_details": null,
+      "latency_seconds": 39.979399699997884,
+      "steps": 4,
+      "usage_counter": 3307,
+      "estimated_cost_usd": 0.0006202499999999999,
       "tool_calls": [
         {
           "tool": "get_log_context",
@@ -222,10 +262,25 @@
           "success": true
         }
       ],
-      "provider_calls": [],
+      "provider_calls": [
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": true,
+          "response_cost_usd": 0.00031545,
+          "billed_cost_usd": 0,
+          "raw_response_key": "adad0beeb9944ae81286aace1ad9963b4b4327f008d157760ca7177d5d278517"
+        },
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": false,
+          "response_cost_usd": 0.0003048,
+          "billed_cost_usd": 0.0003048,
+          "raw_response_key": "11b62496b809f1c9f9ef3f10f6964fcd612c73bd0ee339a01810a98ee00bdd80"
+        }
+      ],
       "correct_calls": 2,
       "unnecessary_calls": 0,
-      "suggested_fix": "\n\n",
+      "suggested_fix": "Restore the missing DNS record for inventory.internal in the service discovery system, then verify resolution from the worker pod. Add exponential backoff and a retry limit to the client resolve call to avoid rapid failure loops.\nnslookup inventory.internal from the pod succeeds and error logs disappear for 15 minutes.\nIncorrect DNS entry could misroute traffic; backoff may increase latency.",
       "similar_incident_ids": [
         "INC-0155",
         "INC-0169",
@@ -233,7 +288,9 @@
         "INC-0166",
         "INC-0165",
         "INC-0157"
-      ]
+      ],
+      "evaluated_at_utc": "2026-10-06T07:57:03.077798+00:00",
+      "resumed_from_checkpoint": true
     },
     {
       "id": "INC-0221",
@@ -243,12 +300,12 @@
       ],
       "top1": true,
       "top3": true,
-      "status": "failed",
-      "error_details": "fix_drafter: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
-      "latency_seconds": 54.98598530000163,
+      "status": "completed",
+      "error_details": null,
+      "latency_seconds": 59.98351309999998,
       "steps": 4,
-      "usage_counter": 1598,
-      "estimated_cost_usd": 0.152448,
+      "usage_counter": 3226,
+      "estimated_cost_usd": 0.0006148499999999999,
       "tool_calls": [
         {
           "tool": "get_log_context",
@@ -268,16 +325,23 @@
       ],
       "provider_calls": [
         {
-          "provider_model": "gemini-3.7-flash",
+          "provider_model": "openai/gpt-oss-120b",
           "cached": true,
-          "response_cost_usd": 0.0015225,
+          "response_cost_usd": 0.0002964,
           "billed_cost_usd": 0,
-          "raw_response_key": "a027a1790fd3529569fd748629c8cb8ca619a03ea8ea20d21f379be07c4766a9"
+          "raw_response_key": "58626ac101e918a3a113d1da741a7e51d2b89193ffef63d17fcc07b40e3ded72"
+        },
+        {
+          "provider_model": "openai/gpt-oss-120b",
+          "cached": false,
+          "response_cost_usd": 0.00031844999999999996,
+          "billed_cost_usd": 0.00031844999999999996,
+          "raw_response_key": "033664f0cf33f624b18969c782c526c12e89897da151a55af7a905f8e11b5721"
         }
       ],
       "correct_calls": 2,
       "unnecessary_calls": 0,
-      "suggested_fix": "\n\n",
+      "suggested_fix": "Add thread-safe access to the registry by protecting mutations with a lock and iterating over a shallow copy (e.g., dict(registry)) in snapshot(). This prevents concurrent mutation errors observed in incidents INC-0207, INC-0219, INC-0217.\nRun integration tests with concurrent refresh and snapshot calls; confirm no RuntimeError and health probes succeed.\nLock may add latency or risk deadlock if not correctly scoped.",
       "similar_incident_ids": [
         "INC-0207",
         "INC-0219",
@@ -285,12 +349,16 @@
         "INC-0201",
         "INC-0215",
         "INC-0216"
-      ]
+      ],
+      "evaluated_at_utc": "2026-10-06T07:58:03.066399+00:00",
+      "resumed_from_checkpoint": true
     }
   ],
   "injections": [],
+  "resumed_case_count": 5,
+  "progress_path": "C:\\Users\\vinay\\Developer\\portfolio\\fastapi-genai-agent-patterns\\results\\resume\\8479b685a5ffd583671ab5f1\\progress.json",
   "judge": {
-    "model": "gemini-3.7-flash",
+    "model": "qwen/qwen3.8-27b",
     "temperature": 0.0,
     "budget_exhausted": false,
     "provider_error": null,
@@ -301,20 +369,85 @@
       "retries": 0,
       "backoff_seconds": 0,
       "throttle_wait_seconds": 0,
-      "cache_hits": 0
+      "cache_hits": 0,
+      "token_quota_wait_seconds": 0
     },
-    "task_fix_mean_score": null,
-    "task_scores": [],
+    "task_fix_mean_score": 5,
+    "task_scores": [
+      {
+        "id": "INC-0021",
+        "score": 5,
+        "rationale": "The proposed fix correctly identifies the root cause (connections not being returned) and provides the standard, actionable solution: using context managers for sessions and ensuring rollbacks occur on exceptions. It also includes reasonable secondary measures like monitoring and load testing.",
+        "tokens": 432,
+        "response_cost_usd": 0.0005376000000000001,
+        "billed_cost_usd": 0.0005376000000000001,
+        "cached": false,
+        "raw_response_key": "8f5279f7ceda7aeb02936a754454af878dfeec81691705a1aba1a0352d718498",
+        "latency_seconds": 0.46921609999844804,
+        "evaluated_at_utc": "2026-10-06T07:58:03.878492+00:00",
+        "resumed_from_checkpoint": true
+      },
+      {
+        "id": "INC-0071",
+        "score": 5,
+        "rationale": "The proposed fix correctly identifies the root cause (deployment preceding migration) and provides the standard, actionable remediation steps: rollback/pause the service, apply the missing database migration, verify the schema, and redeploy. It also includes appropriate safety checks (backups, verification).",
+        "tokens": 477,
+        "response_cost_usd": 0.0005992,
+        "billed_cost_usd": 0.0005992,
+        "cached": false,
+        "raw_response_key": "6c821b69b1d55cdc1d1479dc2eb8d1ffaf5806c4d9853ca81a69fa6008624ed0",
+        "latency_seconds": 19.90709229999993,
+        "evaluated_at_utc": "2026-10-06T07:58:23.789066+00:00",
+        "resumed_from_checkpoint": true
+      },
+      {
+        "id": "INC-0121",
+        "score": 5,
+        "rationale": "The proposed fix correctly identifies the root cause (missing environment variable due to deployment omission) and provides an actionable solution (adding the variable from the secret store). It also includes preventive measures (startup validation and CI/CD checks) and a verification step, making it a complete and high-quality fix.",
+        "tokens": 450,
+        "response_cost_usd": 0.0005904,
+        "billed_cost_usd": 0.0005904,
+        "cached": false,
+        "raw_response_key": "28d3aded2495601180a0f97d6c280c4de3e33693d115d734171db6f2b6f6b5cc",
+        "latency_seconds": 20.076225400000112,
+        "evaluated_at_utc": "2026-10-06T07:58:43.870243+00:00",
+        "resumed_from_checkpoint": true
+      },
+      {
+        "id": "INC-0171",
+        "score": 5,
+        "rationale": "The proposed fix correctly identifies the root cause (DNS resolution failure) and provides an actionable solution (restoring the DNS record). It also includes a robustness improvement (exponential backoff) to handle transient issues, which is a best practice. The verification step is clear.",
+        "tokens": 449,
+        "response_cost_usd": 0.0005768,
+        "billed_cost_usd": 0.0005768,
+        "cached": false,
+        "raw_response_key": "b9db5280373b710f1ad6ffae3855d8277396e83af14ede45578936a046f53247",
+        "latency_seconds": 19.963541899996926,
+        "evaluated_at_utc": "2026-10-06T07:59:03.837008+00:00",
+        "resumed_from_checkpoint": true
+      },
+      {
+        "id": "INC-0221",
+        "score": 5,
+        "rationale": "The proposed fix correctly identifies the root cause (concurrent mutation during iteration) and provides a standard, actionable solution (using a lock for mutations and iterating over a copy for reads). It also includes verification steps and acknowledges potential trade-offs (latency/deadlock), making it a complete and high-quality response.",
+        "tokens": 467,
+        "response_cost_usd": 0.0006136,
+        "billed_cost_usd": 0.0006136,
+        "cached": false,
+        "raw_response_key": "08ad3023875482d4ab486335a32c1f9534e829e53ff7114e6d64f3329d743fe2",
+        "latency_seconds": 20.05884490000244,
+        "evaluated_at_utc": "2026-10-06T07:59:23.899045+00:00",
+        "resumed_from_checkpoint": true
+      }
+    ],
     "validation_scores": [],
     "human_labelled_cases": 0,
     "validation_status": "pending_live_judge",
     "agreement": {},
     "disagreements": []
   },
-  "projection_complete": false,
-  "projected_full_eval_cost_usd": null,
-  "full_run_status": "pending_models_unavailable",
-  "same_model_judge": true,
+  "daily_quota_paused": false,
+  "same_model_judge": false,
   "provider_configuration": {
     "agent_input_usd_per_million": 0.15,
     "agent_output_usd_per_million": 0.6,
@@ -323,5 +456,7 @@
     "min_interval_seconds": 20.0,
     "retry_backoff_seconds": 30.0,
     "max_retries": 3
-  }
+  },
+  "projection_complete": true,
+  "projected_full_eval_cost_usd": 0.08149369
 }

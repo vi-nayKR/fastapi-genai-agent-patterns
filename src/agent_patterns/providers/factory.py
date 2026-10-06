@@ -7,6 +7,7 @@ from agent_patterns.config import Settings
 from agent_patterns.providers.base import EvaluationBudget, LLMProvider
 from agent_patterns.providers.deterministic_provider import DeterministicProvider
 from agent_patterns.providers.openai_provider import OpenAIProvider
+from agent_patterns.providers.quota import TokenQuota
 
 
 def create_provider(
@@ -38,6 +39,15 @@ def create_provider(
             output_usd_per_million=settings.provider_output_usd_per_million,
             min_interval_seconds=settings.provider_min_interval_seconds,
             retry_backoff_seconds=settings.provider_retry_backoff_seconds,
+            quota=TokenQuota(
+                settings.provider_quota_database,
+                settings.provider_base_url.rstrip("/"),
+                settings.provider_model,
+                settings.provider_tokens_per_minute,
+                settings.provider_tokens_per_day,
+            )
+            if "api.groq.com" in settings.provider_base_url
+            else None,
         )
 
     return DeterministicProvider(tracer=tracer)

@@ -1,4 +1,6 @@
-# Traceward measured results
+# Traceward smoke results - five cases only
+
+This is a smoke record, not the full evaluation. Full live metrics remain pending (live run in progress).
 
 Synthetic known-family template holdout, not real-world model generalization. Latency includes MCP process startup under concurrent load. Ticket checks inspect SQLite persistence. Resumed rows retain their original timestamps, costs and latency; they are not fresh measurements. Different-family judges still need human validation.
 

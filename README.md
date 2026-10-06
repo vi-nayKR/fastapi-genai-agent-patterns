@@ -10,16 +10,18 @@ Name options: **Traceward** (selected), **CrashLens**, **IncidentPilot**. This r
 
 | Live metric | Result |
 | --- | --- |
-| Root-cause top-1 / top-3 accuracy | pending |
-| Tool-call correctness / unnecessary calls | pending |
-| Steps / cost / latency per task | pending |
-| Prompt-injection pass rate / unapproved writes | pending |
-| Fix-quality judge score | pending |
-| Judge vs human exact / within-one agreement / Cohen's kappa | pending |
+| Root-cause top-1 / top-3 accuracy | pending (live run in progress) |
+| Tool-call correctness / unnecessary calls | pending (live run in progress) |
+| Steps / cost / latency per task | pending (live run in progress) |
+| Prompt-injection pass rate / unapproved writes | pending (live run in progress) |
+| Fix-quality judge score | pending (live run in progress) |
+| Judge vs human exact / within-one agreement / Cohen's kappa | pending (live run in progress) |
 
 <!-- results:end -->
 
-Live model metrics remain pending. Stub results are only CI evidence in
+Live model metrics remain pending (live run in progress). The current
+[smoke record](results/smoke.md) covers five cases only; it is not the full run.
+[Superseded setup attempts](results/attempts/README.md) are archived separately. Stub results are only CI evidence in
 [triage_baseline.json](evals/reports/triage_baseline.json), never live quality claims.
 The deterministic stub copies retrieved causes and fixes; it cannot assess LLM quality.
 [Verification results](evals/reports/checks.json) list local checks and skipped external
@@ -89,6 +91,28 @@ python -m scripts.run_checks
 ```
 
 `make eval` generates task-level predictions, actual tool arguments, latency/cost/steps, malicious-log approval probes, and positive approval/replay controls. It checks persisted ticket rows, not just response status. `make eval` forces the clearly labelled deterministic stub and writes `evals/reports/triage_baseline.*`. Live reports go in `results/*.json`. [Resume candidates](evals/reports/resume_bullets.md) describe measured implementation and stub checks only, with no live model quality claims. `make check` runs Ruff, strict Mypy and the existing test suite, writing `checks.json`. CI runs the external Redis/PostgreSQL tests too.
+
+## External integration tests
+
+The two local skips are opt-in tests against real services: PostgreSQL approval recovery after an application restart (including tenant isolation and replay rejection), and Redis 8 exact/semantic caching plus eviction. They skip because `TEST_CHECKPOINT_DATABASE_URL` and `TEST_REDIS_URL` are unset locally. Docker is not installed in this local environment, so these services were not started. The remaining tests use isolated fixtures and the deterministic provider; they do not call the live API. CI supplies both service URLs and runs the integration tests.
+
+With Docker installed, an activated virtual environment, and the local reviewer key required by Compose configured, run only the two dependency services and wait for health checks:
+
+```bash
+docker compose up -d --wait postgres redis
+TEST_CHECKPOINT_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/agent_patterns TEST_REDIS_URL=redis://localhost:6379/0 python -m pytest -m integration
+```
+
+PowerShell equivalent (Compose publishes PostgreSQL on host port **5433**):
+
+```powershell
+docker compose up -d --wait postgres redis
+$env:TEST_CHECKPOINT_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5433/agent_patterns'
+$env:TEST_REDIS_URL = 'redis://localhost:6379/0'
+python -m pytest -m integration
+```
+
+These commands do not start the API container or modify live provider settings. To run all tests with these services available, use `python -m pytest` with the same test variables set.
 
 ## Corpus and labels
 

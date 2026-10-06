@@ -66,6 +66,26 @@ async def test_provider_generates_response_with_tokens() -> None:
 
 
 @pytest.mark.asyncio
+async def test_gemini_counts_hidden_thinking_in_cost_and_completion_cap() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = _chat_completion_payload("answer", model="gemini-3.7-flash")
+        body["usage"] = {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 140}
+        return httpx.Response(200, json=body)
+
+    provider = OpenAIProvider(
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        model="gemini-3.7-flash",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await provider.generate([{"role": "user", "content": "test"}], max_output_tokens=700)
+    assert result.usage.reasoning_tokens == 110 and result.usage.completion_tokens == 130
+    assert result.response_cost_usd == pytest.approx(140 * 10 / 1_000_000)
+    with pytest.raises(ProviderMalformedOutputError, match="token usage"):
+        await provider.generate([{"role": "user", "content": "test"}], max_output_tokens=100)
+    await provider.close()
+
+
+@pytest.mark.asyncio
 async def test_provider_validates_structured_schema() -> None:
     expected_data = {
         "summary": "Tenant policy verified",
@@ -306,3 +326,16 @@ async def test_provider_records_telemetry_span_and_token_attributes() -> None:
 
     await provider.close()
     tracer_provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_budgeted_calls_fail_without_usage_instead_of_reporting_zero_cost() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = _chat_completion_payload("answer")
+        body.pop("usage")
+        return httpx.Response(200, json=body)
+
+    provider = OpenAIProvider(transport=httpx.MockTransport(handler))
+    with pytest.raises(ProviderMalformedOutputError, match="token usage"):
+        await provider.generate([{"role": "user", "content": "test"}], max_output_tokens=700)
+    await provider.close()

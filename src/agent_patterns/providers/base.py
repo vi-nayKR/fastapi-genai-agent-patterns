@@ -44,6 +44,22 @@ class ProviderUnavailableError(ProviderError):
     """Raised on network connection errors or 5xx responses from the upstream provider."""
 
 
+class ProviderBudgetError(ProviderError):
+    """Raised before a paid call would exceed the evaluation-wide budget."""
+
+
+@dataclass
+class EvaluationBudget:
+    max_cost_usd: float
+    reserved_usd: float = 0
+
+    def reserve(self, amount: float) -> None:
+        if amount < 0 or self.reserved_usd + amount > self.max_cost_usd:
+            raise ProviderBudgetError("Evaluation cost cap reached before API call")
+        # No awaits: reservation is atomic within the evaluation's single asyncio loop.
+        self.reserved_usd += amount
+
+
 @dataclass(frozen=True)
 class ProviderUsage:
     """Token consumption details returned by a provider invocation."""
@@ -51,6 +67,7 @@ class ProviderUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    reasoning_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -61,6 +78,10 @@ class ProviderResponse:
     usage: ProviderUsage
     model: str
     structured: Any | None = None
+    cached: bool = False
+    response_cost_usd: float = 0
+    billed_cost_usd: float = 0
+    raw_response_key: str | None = None
 
 
 @runtime_checkable
@@ -73,6 +94,7 @@ class LLMProvider(Protocol):
         *,
         response_schema: type[BaseModel] | None = None,
         request_timeout: float | None = None,
+        max_output_tokens: int | None = None,
     ) -> ProviderResponse:
         """Execute a completion request, optionally validating structured output."""
         ...

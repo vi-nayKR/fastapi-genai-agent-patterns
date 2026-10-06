@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from agent_patterns.app import create_app
 from agent_patterns.config import Settings
+from tests.test_agents import LOG
 
 
 @pytest.mark.integration
@@ -37,7 +38,7 @@ def test_approval_survives_restart_is_tenant_scoped_and_replay_is_rejected() -> 
     with TestClient(create_app(alpha), headers=alpha_headers) as first_process:
         started = first_process.post(
             "/api/v1/agents/runs",
-            json={"task": "Deploy the payment API", "risk_level": "high"},
+            json={"task": LOG, "risk_level": "high"},
         )
         assert started.status_code == 200
         thread_id = started.json()["thread_id"]
@@ -51,9 +52,12 @@ def test_approval_survives_restart_is_tenant_scoped_and_replay_is_rejected() -> 
 
     with TestClient(create_app(beta), headers=beta_headers) as other_tenant:
         assert other_tenant.get(f"/api/v1/agents/runs/{thread_id}").status_code == 404
-        assert other_tenant.post(
-            f"/api/v1/agents/runs/{thread_id}/approval", json={"approved": True}
-        ).status_code == 404
+        assert (
+            other_tenant.post(
+                f"/api/v1/agents/runs/{thread_id}/approval", json={"approved": True}
+            ).status_code
+            == 404
+        )
 
     with TestClient(create_app(alpha), headers=alpha_headers) as reviewer:
         approved = reviewer.post(

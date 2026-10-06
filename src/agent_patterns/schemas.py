@@ -30,6 +30,10 @@ class AgentRunRequest(StrictModel):
     risk_level: Literal["low", "medium", "high"] = "low"
     require_approval: bool = False
     max_iterations: int = Field(default=8, ge=2, le=32)
+    max_steps: int = Field(default=6, ge=1, le=32)
+    create_ticket: bool = False
+    max_tokens: int = Field(default=16000, ge=1, le=100000)
+    max_cost_usd: float = Field(default=0.20, gt=0, le=10)
 
 
 class ApprovalRequest(StrictModel):
@@ -52,48 +56,19 @@ class ResearchFinding(StrictModel):
     )
 
 
-class ActionProposal(StrictModel):
-    summary: str = Field(description="Summary of proposed technical changes or response")
-    action_type: Literal["read_only", "ticket_update", "system_change", "escalate"] = Field(
-        default="read_only", description="Categorization of the action"
-    )
-    target_resource: str | None = Field(
-        default=None,
-        description="Resource identifier for mutations (e.g. ticket ID, service name)",
-    )
-    parameters: dict[str, Any] = Field(
-        default_factory=dict, description="Validated parameters for the proposed action"
-    )
-    is_mutation: bool = Field(
-        default=False, description="Whether the action mutates persistent state"
-    )
-
-
-class ComplianceReview(StrictModel):
-    policy_satisfied: bool = Field(
-        default=True, description="Whether the request satisfies policy constraints"
-    )
-    risk_assessment: Literal["low", "medium", "high"] = Field(
-        default="low", description="Assessed risk level"
-    )
-    requires_human_approval: bool = Field(
-        default=False, description="Whether human approval is mandated before execution"
-    )
-    audit_notes: list[str] = Field(
-        default_factory=list, description="Security and audit observations"
-    )
-
-
 class StructuredAgentResult(StrictModel):
-    research: ResearchFinding | None = None
-    action: ActionProposal | None = None
-    compliance: ComplianceReview | None = None
     final_synthesis: str = Field(
         description="Consolidated final synthesis across completed specialists"
     )
     tokens_used: int = Field(
         default=0, ge=0, description="Total provider tokens consumed across workers"
     )
+    parsed_log: dict[str, Any] = Field(default_factory=dict)
+    similar_incidents: list[dict[str, Any]] = Field(default_factory=list)
+    hypotheses: list[dict[str, Any]] = Field(default_factory=list)
+    suggested_fix: str = ""
+    ticket: dict[str, Any] | None = None
+    estimated_cost_usd: float = 0
 
 
 class AgentRunResponse(StrictModel):
@@ -104,12 +79,37 @@ class AgentRunResponse(StrictModel):
     result: str | None = None
     structured_result: StructuredAgentResult | None = None
     error_details: str | None = None
-    completed_agents: list[Literal["research", "coding", "compliance"]] = Field(
-        default_factory=list
-    )
+    completed_agents: list[
+        Literal["log_parser", "incident_retriever", "root_cause", "fix_drafter"]
+    ] = Field(default_factory=list)
     audit_log: list[str] = Field(default_factory=list)
     approval: dict[str, Any] | None = None
+    trajectory: list[dict[str, Any]] = Field(default_factory=list)
+    steps: int = 0
+    tokens_used: int = 0
+    estimated_cost_usd: float = 0
 
+
+class Hypothesis(StrictModel):
+    label: str
+    explanation: str
+    incident_ids: list[str]
+
+
+class RootCauseReport(StrictModel):
+    hypotheses: list[Hypothesis] = Field(max_length=3)
+    abstain: bool = False
+
+
+class FixDraft(StrictModel):
+    summary: str = Field(min_length=1, max_length=1000)
+    verification: str
+    risks: str
+
+
+class FixQuality(StrictModel):
+    score: int = Field(ge=1, le=5)
+    rationale: str
 
 
 class AgentEvent(StrictModel):

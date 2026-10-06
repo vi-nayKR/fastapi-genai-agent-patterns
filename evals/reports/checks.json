@@ -1,0 +1,28 @@
+{
+  "gates": [
+    {
+      "command": "python -m ruff",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m mypy",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m pytest",
+      "exit_code": 0
+    }
+  ],
+  "tests": 63,
+  "failed": 0,
+  "skipped": [
+    {
+      "name": "test_approval_survives_restart_is_tenant_scoped_and_replay_is_rejected",
+      "reason": "set TEST_CHECKPOINT_DATABASE_URL to run PostgreSQL checkpoint tests"
+    },
+    {
+      "name": "test_redis_8_exact_semantic_and_eviction_contract",
+      "reason": "Set TEST_REDIS_URL to run the Redis 8 integration test"
+    }
+  ]
+}

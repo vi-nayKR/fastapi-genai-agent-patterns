@@ -1,5 +1,6 @@
 """LangGraph supervisor with specialist routing, structured outputs, and failure handling."""
 
+import json
 from typing import cast
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -10,80 +11,30 @@ from opentelemetry.trace import Tracer
 
 from agent_patterns.agents.state import AgentName, AgentState, GraphRoute
 from agent_patterns.agents.workers import build_worker
+from agent_patterns.incident_tools import approval_signature
+from agent_patterns.mcp_client import IncidentToolClient
 from agent_patterns.providers.base import LLMProvider
-from agent_patterns.retrieval.hybrid import HybridRetriever
 from agent_patterns.schemas import (
-    ActionProposal,
-    ComplianceReview,
-    ResearchFinding,
     StructuredAgentResult,
 )
 
-MUTATION_TERMS = frozenset(
-    {
-        "bypass",
-        "delete",
-        "deploy",
-        "execute",
-        "modify",
-        "override",
-        "payment",
-        "purge",
-        "write",
-    }
+SPECIALISTS: tuple[AgentName, ...] = (
+    "log_parser",
+    "incident_retriever",
+    "root_cause",
+    "fix_drafter",
 )
-ACTION_STARTERS = frozenset(
-    {
-        "apply",
-        "bypass",
-        "confidential",
-        "delete",
-        "deploy",
-        "execute",
-        "hotfix",
-        "ignore",
-        "implement",
-        "patch",
-        "process",
-        "purge",
-        "run",
-        "skip",
-        "stage",
-        "system",
-        "update",
-    }
-)
-CODE_TERMS = frozenset({"api", "bug", "code", "function", "implement", "python", "test"})
-
-
-def _words(task: str) -> set[str]:
-    return {word.strip(".,:;!?()[]{}").lower() for word in task.split()}
 
 
 async def plan(state: AgentState) -> AgentState:
-    """Select only the specialists needed for the task."""
-    words = _words(state["task"])
-    task_tokens = state["task"].split()
-    first_word = task_tokens[0].strip(".,:;!?()[]{}").lower() if task_tokens else ""
-
-    planned: list[AgentName] = ["research"]
-    is_adversarial = bool(words & {"override", "bypass", "ignore"})
-    is_action = (first_word in ACTION_STARTERS) or is_adversarial or bool(words & CODE_TERMS)
-
-    if is_action:
-        planned.append("coding")
-    if state["risk_level"] == "high" or bool(words & MUTATION_TERMS):
-        planned.append("compliance")
-
+    """Triage always parses, retrieves, hypothesizes and drafts; logs never set routes."""
     return {
-        "planned_agents": planned,
-        "completed_agents": [],
+        "planned_agents": list(SPECIALISTS),
         "partial_results": {},
-        "structured_results": {},
         "total_tokens": 0,
         "iterations": 0,
         "status": "running",
-        "audit_log": [f"supervisor:planned:{','.join(planned)}"],
+        "audit_log": ["supervisor:planned:triage"],
     }
 
 
@@ -109,8 +60,17 @@ async def supervise(state: AgentState) -> AgentState:
 
     completed = set(state.get("completed_agents", []))
     remaining = [agent for agent in state["planned_agents"] if agent not in completed]
-    if remaining:
-        route: GraphRoute = remaining[0]
+    if "root_cause" in completed and not state.get("hypotheses"):
+        route: GraphRoute = "finalize"
+    elif remaining and len(completed) >= state["max_steps"]:
+        return {
+            "status": "failed",
+            "next_route": "finalize",
+            "error_details": "Maximum specialist steps reached; no action taken.",
+            "audit_log": ["supervisor:step_limit"],
+        }
+    elif remaining:
+        route = remaining[0]
     elif _needs_approval(state) and state.get("approval_decision") is None:
         route = "approval"
     else:
@@ -124,7 +84,7 @@ async def supervise(state: AgentState) -> AgentState:
 
 
 def _needs_approval(state: AgentState) -> bool:
-    return state["require_approval"] or state["risk_level"] == "high"
+    return state["create_ticket"] or state["require_approval"] or state["risk_level"] == "high"
 
 
 def select_route(state: AgentState) -> GraphRoute:
@@ -140,6 +100,8 @@ async def request_approval(state: AgentState) -> AgentState:
             "task": state["task"],
             "completed_agents": state.get("completed_agents", []),
             "risk_level": state["risk_level"],
+            "proposed_fix": state.get("fix", {}),
+            "ticket_requested": state["create_ticket"],
         }
     )
     if not isinstance(decision, dict) or not isinstance(decision.get("approved"), bool):
@@ -179,32 +141,18 @@ async def finalize(state: AgentState) -> AgentState:
             "audit_log": ["run:rejected"],
         }
 
-    ordered_results = [
-        state.get("partial_results", {})[agent]
-        for agent in state.get("completed_agents", [])
-        if agent in state.get("partial_results", {})
-    ]
-    final_text = "\n\n".join(ordered_results)
-
-    structured_map = state.get("structured_results", {})
-    research_dict = structured_map.get("research")
-    coding_dict = structured_map.get("coding")
-    compliance_dict = structured_map.get("compliance")
-
-    research_obj = ResearchFinding.model_validate(research_dict) if research_dict else None
-    action_obj = ActionProposal.model_validate(coding_dict) if coding_dict else None
-    compliance_obj = (
-        ComplianceReview.model_validate(compliance_dict) if compliance_dict else None
-    )
-
+    fix = state.get("fix", {})
+    final_text = json.dumps({"hypotheses": state.get("hypotheses", []), "fix": fix})
     structured_res = StructuredAgentResult(
-        research=research_obj,
-        action=action_obj,
-        compliance=compliance_obj,
+        parsed_log=state.get("parsed_log", {}),
+        similar_incidents=state.get("similar_incidents", []),
+        hypotheses=state.get("hypotheses", []),
+        suggested_fix="\n".join(str(fix.get(k, "")) for k in ("summary", "verification", "risks")),
+        ticket=state.get("ticket"),
         final_synthesis=final_text,
         tokens_used=state.get("total_tokens", 0),
+        estimated_cost_usd=state.get("estimated_cost_usd", 0),
     )
-
     return {
         "status": "completed",
         "result": final_text,
@@ -215,27 +163,56 @@ async def finalize(state: AgentState) -> AgentState:
 
 def build_agent_graph(
     checkpointer: BaseCheckpointSaver[str],
-    provider: LLMProvider | None = None,
-    tracer: Tracer | None = None,
-    retriever: HybridRetriever | None = None,
+    provider: LLMProvider,
+    tracer: Tracer,
+    tools: IncidentToolClient,
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
     """Compile the supervisor with an injected persistence implementation and provider."""
     builder = StateGraph(AgentState)
     builder.add_node("plan", plan)
     builder.add_node("supervisor", supervise)
-    # LangGraph's node overloads currently infer Never for async factories even
-    # though their runtime contract is Callable[[State], Awaitable[State]].
-    builder.add_node("research", build_worker("research", provider, tracer, retriever))  # type: ignore[arg-type]
-    builder.add_node("coding", build_worker("coding", provider, tracer, retriever))  # type: ignore[arg-type]
-    builder.add_node("compliance", build_worker("compliance", provider, tracer, retriever))  # type: ignore[arg-type]
+    for agent in SPECIALISTS:
+        builder.add_node(agent, build_worker(agent, provider, tracer, tools))  # type: ignore[arg-type]
+
+    async def ticket(state: AgentState) -> AgentState:
+        if not state["create_ticket"] or state.get("approval_decision") is not True:
+            return {}
+        if len(state["completed_agents"]) >= state["max_steps"]:
+            return {
+                "status": "failed",
+                "error_details": "Step budget exhausted before ticket creation.",
+                "audit_log": ["supervisor:step_limit"],
+            }
+        draft = {"summary": state["fix"]["summary"], "body": json.dumps(state["fix"])}
+        signature = approval_signature(tools.secret, state["tenant_id"], state["thread_id"], draft)
+        try:
+            result = await tools.call(
+                "create_ticket_draft",
+                {"thread_id": state["thread_id"], **draft, "approval_token": signature},
+            )
+            return {
+                "ticket": result,
+                "audit_log": ["ticket:created_after_approval"],
+                "trajectory": [{"tool": "create_ticket_draft", "approved": True, "success": True}],
+            }
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "error_details": f"Ticket persistence failed: {exc}",
+                "audit_log": ["ticket:failed"],
+                "trajectory": [{"tool": "create_ticket_draft", "approved": True, "success": False}],
+            }
+
+    builder.add_node("ticket", ticket)
     builder.add_node("approval", request_approval)
     builder.add_node("finalize", finalize)
 
     builder.add_edge(START, "plan")
     builder.add_edge("plan", "supervisor")
     builder.add_conditional_edges("supervisor", select_route)
-    for worker in ("research", "coding", "compliance"):
+    for worker in SPECIALISTS:
         builder.add_edge(worker, "supervisor")
-    builder.add_edge("approval", "finalize")
+    builder.add_edge("approval", "ticket")
+    builder.add_edge("ticket", "finalize")
     builder.add_edge("finalize", END)
-    return builder.compile(checkpointer=checkpointer, name="production-agent-supervisor")
+    return builder.compile(checkpointer=checkpointer, name="traceward-incident-supervisor")

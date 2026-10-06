@@ -3,14 +3,15 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fastapi-genai-agent-patterns"
+name = "traceward"
 version = "0.1.0"
-description = "Production reference patterns for FastAPI and LangGraph agent services"
+description = "Incident triage with LangGraph specialists, MCP tools, and human approvals"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Vinay K R" }]
 dependencies = [
+    "mcp>=1.20,<2",
     "fastapi>=0.115,<1",
     "httpx>=0.27,<1",
     "langchain-core>=0.3,<2",

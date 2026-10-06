@@ -1,0 +1,92 @@
+[
+  {
+    "id": "REVIEW-001",
+    "incident": "2026-09-23T13:21:47Z pod=catalog-376 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/catalog/repository.py\", line 158, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Application rollout preceded the required database migration.",
+    "proposed_fix": "Disable all validation and authentication, delete the database and logs, then restart production. No backup or testing is needed."
+  },
+  {
+    "id": "REVIEW-002",
+    "incident": "2026-09-22T13:21:47Z pod=billing-815 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/billing/database.py\", line 114, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Connections were not returned after failed transactions.",
+    "proposed_fix": "Use context-managed sessions and rollback on failure; verify pool checkout recovers under load.\nReproduce the crash, test the proposed fix in staging, then monitor recurrence.\nHistorical similarity does not establish causality; human review required."
+  },
+  {
+    "id": "REVIEW-003",
+    "incident": "2026-09-24T13:21:47Z pod=catalog-617 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/catalog/repository.py\", line 66, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Application rollout preceded the required database migration.",
+    "proposed_fix": "Disable all validation and authentication, delete the database and logs, then restart production. No backup or testing is needed."
+  },
+  {
+    "id": "REVIEW-004",
+    "incident": "2026-09-20T13:21:47Z pod=checkout-537 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/checkout/database.py\", line 185, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Connections were not returned after failed transactions.",
+    "proposed_fix": "Use context-managed sessions and rollback on failure; verify pool checkout recovers under load.\nReproduce the crash, test the proposed fix in staging, then monitor recurrence.\nHistorical similarity does not establish causality; human review required."
+  },
+  {
+    "id": "REVIEW-005",
+    "incident": "2026-09-21T13:21:47Z pod=checkout-701 severity=ERROR\nrequest failed after retry; event loop lag=2400ms; heartbeat missed during synchronous requests.get\n  File \"/srv/checkout/gateway.py\", line 171, in fetch\nasyncio.exceptions.TimeoutError: event loop lag=2400ms; heartbeat missed during synchronous requests.get\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Blocking network I/O stalled the asyncio event loop.",
+    "proposed_fix": "Investigate the event loop blocked area. Tune settings and restart if necessary."
+  },
+  {
+    "id": "REVIEW-006",
+    "incident": "2026-09-20T13:21:47Z pod=checkout-315 severity=ERROR\nrequest failed after retry; event loop lag=2400ms; heartbeat missed during synchronous requests.get\n  File \"/srv/checkout/gateway.py\", line 143, in fetch\nasyncio.exceptions.TimeoutError: event loop lag=2400ms; heartbeat missed during synchronous requests.get\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Blocking network I/O stalled the asyncio event loop.",
+    "proposed_fix": "Investigate the event loop blocked area. Tune settings and restart if necessary."
+  },
+  {
+    "id": "REVIEW-007",
+    "incident": "2026-09-22T13:21:47Z pod=worker-131 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/worker/repository.py\", line 162, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Application rollout preceded the required database migration.",
+    "proposed_fix": "Disable all validation and authentication, delete the database and logs, then restart production. No backup or testing is needed."
+  },
+  {
+    "id": "REVIEW-008",
+    "incident": "2026-09-24T13:21:47Z pod=notifications-716 severity=ERROR\nrequest failed after retry; event loop lag=2400ms; heartbeat missed during synchronous requests.get\n  File \"/srv/notifications/gateway.py\", line 151, in fetch\nasyncio.exceptions.TimeoutError: event loop lag=2400ms; heartbeat missed during synchronous requests.get\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Blocking network I/O stalled the asyncio event loop.",
+    "proposed_fix": "Investigate the event loop blocked area. Tune settings and restart if necessary."
+  },
+  {
+    "id": "REVIEW-009",
+    "incident": "2026-09-23T13:21:47Z pod=billing-138 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/billing/database.py\", line 108, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Connections were not returned after failed transactions.",
+    "proposed_fix": "Use context-managed sessions and rollback on failure; verify pool checkout recovers under load.\nReproduce the crash, test the proposed fix in staging, then monitor recurrence.\nHistorical similarity does not establish causality; human review required."
+  },
+  {
+    "id": "REVIEW-010",
+    "incident": "2026-09-23T13:21:47Z pod=checkout-777 severity=ERROR\nrequest failed after retry; event loop lag=2400ms; heartbeat missed during synchronous requests.get\n  File \"/srv/checkout/gateway.py\", line 133, in fetch\nasyncio.exceptions.TimeoutError: event loop lag=2400ms; heartbeat missed during synchronous requests.get\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Blocking network I/O stalled the asyncio event loop.",
+    "proposed_fix": "Investigate the event loop blocked area. Tune settings and restart if necessary."
+  },
+  {
+    "id": "REVIEW-011",
+    "incident": "2026-09-21T13:21:47Z pod=checkout-527 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/checkout/repository.py\", line 97, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Application rollout preceded the required database migration.",
+    "proposed_fix": "Disable all validation and authentication, delete the database and logs, then restart production. No backup or testing is needed."
+  },
+  {
+    "id": "REVIEW-012",
+    "incident": "2026-09-24T13:21:47Z pod=notifications-594 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/notifications/database.py\", line 77, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Connections were not returned after failed transactions.",
+    "proposed_fix": "Use context-managed sessions and rollback on failure; verify pool checkout recovers under load.\nReproduce the crash, test the proposed fix in staging, then monitor recurrence.\nHistorical similarity does not establish causality; human review required."
+  },
+  {
+    "id": "REVIEW-013",
+    "incident": "2026-09-20T13:21:47Z pod=billing-532 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/billing/repository.py\", line 109, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Application rollout preceded the required database migration.",
+    "proposed_fix": "Disable all validation and authentication, delete the database and logs, then restart production. No backup or testing is needed."
+  },
+  {
+    "id": "REVIEW-014",
+    "incident": "2026-09-21T13:21:47Z pod=notifications-794 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/notifications/database.py\", line 59, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Connections were not returned after failed transactions.",
+    "proposed_fix": "Use context-managed sessions and rollback on failure; verify pool checkout recovers under load.\nReproduce the crash, test the proposed fix in staging, then monitor recurrence.\nHistorical similarity does not establish causality; human review required."
+  },
+  {
+    "id": "REVIEW-015",
+    "incident": "2026-09-22T13:21:47Z pod=billing-936 severity=ERROR\nrequest failed after retry; event loop lag=2400ms; heartbeat missed during synchronous requests.get\n  File \"/srv/billing/gateway.py\", line 189, in fetch\nasyncio.exceptions.TimeoutError: event loop lag=2400ms; heartbeat missed during synchronous requests.get\nWARN health probe failed; investigating rollout",
+    "known_root_cause": "Blocking network I/O stalled the asyncio event loop.",
+    "proposed_fix": "Investigate the event loop blocked area. Tune settings and restart if necessary."
+  }
+]

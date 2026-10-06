@@ -4,7 +4,7 @@ import httpx
 from opentelemetry.trace import Tracer
 
 from agent_patterns.config import Settings
-from agent_patterns.providers.base import LLMProvider
+from agent_patterns.providers.base import EvaluationBudget, LLMProvider
 from agent_patterns.providers.deterministic_provider import DeterministicProvider
 from agent_patterns.providers.openai_provider import OpenAIProvider
 
@@ -13,6 +13,7 @@ def create_provider(
     settings: Settings,
     tracer: Tracer | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
+    budget: EvaluationBudget | None = None,
 ) -> LLMProvider:
     """Instantiate the configured model provider adapter."""
     if settings.provider_mode == "openai":
@@ -29,6 +30,14 @@ def create_provider(
             max_retries=settings.provider_max_retries,
             tracer=tracer,
             transport=transport,
+            temperature=settings.provider_temperature,
+            seed=settings.provider_seed if settings.provider_seed_supported else None,
+            cache_dir=settings.provider_cache_dir,
+            budget=budget,
+            input_usd_per_million=settings.provider_input_usd_per_million,
+            output_usd_per_million=settings.provider_output_usd_per_million,
+            min_interval_seconds=settings.provider_min_interval_seconds,
+            retry_backoff_seconds=settings.provider_retry_backoff_seconds,
         )
 
     return DeterministicProvider(tracer=tracer)

@@ -80,9 +80,11 @@ def create_app(
                 tracer_provider.shutdown()
 
     app = FastAPI(
-        title="FastAPI and LangGraph Production Agent Patterns",
+        title="Traceward Incident Triage",
         version=__version__,
-        description="Reference implementation for stateful and observable agent services.",
+        description=(
+            "Incident triage with MCP tools, human approvals and observable specialist routing."
+        ),
         contact={
             "name": "Vinay K R",
             "url": "https://portfolio.vinaykr.workers.dev/",

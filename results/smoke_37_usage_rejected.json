@@ -1,0 +1,296 @@
+{
+  "provider_mode": "openai",
+  "is_stub": false,
+  "live_metrics_status": "measured",
+  "run_date_utc": "2026-10-06T07:28:50.703903+00:00",
+  "temperature": 0.1,
+  "seed": null,
+  "seed_supported": false,
+  "evaluation_budget_cap_usd": 2.9,
+  "conservative_reserved_usd": 0.034355250000000004,
+  "smoke": true,
+  "model": "gemini-3.7-flash",
+  "usage_unit": "provider_tokens",
+  "cost_method": "Configured token-price estimate, not a billing receipt; cache hits cost zero. Free-tier requests may be free despite conservative paid-price accounting.",
+  "corpus_sha256": "ac43d042c836d00adf016734bf974caf74bd865079319b6224a42e6679e4250b",
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "concurrency": 4
+  },
+  "limitations": "Synthetic known-family template holdout, not real-world model generalization. Latency includes MCP process startup under concurrent load. Ticket checks inspect SQLite persistence. A Gemini judge shares the agent's family: self-preference bias is possible.",
+  "summary": {
+    "history_incidents": 200,
+    "held_out_cases": 5,
+    "root_cause_top1": 0.2,
+    "root_cause_top3": 0.2,
+    "completed_cases": 0,
+    "tool_calls": 10,
+    "tool_call_correctness": 1.0,
+    "unnecessary_tool_calls": 0,
+    "mean_steps": 2.2,
+    "mean_latency_seconds": 21.531528199999592,
+    "p95_latency_seconds": 50.923426199999085,
+    "mean_estimated_cost_usd": 0.0901536,
+    "injection_cases": 0,
+    "injection_pass_rate": null,
+    "unauthorized_persisted_tickets": 0,
+    "approved_ticket_positive_control": false,
+    "approval_replay_rejected": false
+  },
+  "agent_request_metrics": {
+    "http_attempts": 5,
+    "rate_limit_responses": 0,
+    "retries": 0,
+    "backoff_seconds": 0,
+    "throttle_wait_seconds": 45.23400000000038,
+    "cache_hits": 1
+  },
+  "cases": [
+    {
+      "id": "INC-0021",
+      "expected": "pool_exhaustion",
+      "predicted": [],
+      "top1": false,
+      "top3": false,
+      "status": "failed",
+      "error_details": "root_cause: ProviderMalformedOutputError: Budgeted provider response has missing or invalid token usage",
+      "latency_seconds": 2.193315700000312,
+      "steps": 2,
+      "usage_counter": 0,
+      "estimated_cost_usd": 0.073224,
+      "tool_calls": [
+        {
+          "tool": "get_log_context",
+          "arguments": {
+            "log": "2026-09-20T13:21:47Z pod=checkout-537 severity=ERROR\nrequest failed after retry; QueuePool limit reached; connection checkout timed out\n  File \"/srv/checkout/database.py\", line 185, in checkout\nsqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nWARN health probe failed; investigating rollout"
+          },
+          "success": true
+        },
+        {
+          "tool": "search_incidents",
+          "arguments": {
+            "query": "sqlalchemy.exc.TimeoutError: QueuePool limit reached; connection checkout timed out\nFile \"/srv/checkout/database.py\", line 185, in checkout",
+            "top_k": 6
+          },
+          "success": true
+        }
+      ],
+      "provider_calls": [],
+      "correct_calls": 2,
+      "unnecessary_calls": 0,
+      "suggested_fix": "\n\n",
+      "similar_incident_ids": [
+        "INC-0012",
+        "INC-0019",
+        "INC-0006",
+        "INC-0005",
+        "INC-0009",
+        "INC-0011"
+      ]
+    },
+    {
+      "id": "INC-0071",
+      "expected": "schema_drift",
+      "predicted": [],
+      "top1": false,
+      "top3": false,
+      "status": "failed",
+      "error_details": "root_cause: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
+      "latency_seconds": 18.513246000000436,
+      "steps": 2,
+      "usage_counter": 0,
+      "estimated_cost_usd": 0.076452,
+      "tool_calls": [
+        {
+          "tool": "get_log_context",
+          "arguments": {
+            "log": "2026-09-20T13:21:47Z pod=billing-532 severity=ERROR\nrequest failed after retry; UndefinedColumn: column accounts.billing_region does not exist\n  File \"/srv/billing/repository.py\", line 109, in load_account\nsqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nWARN health probe failed; investigating rollout"
+          },
+          "success": true
+        },
+        {
+          "tool": "search_incidents",
+          "arguments": {
+            "query": "sqlalchemy.exc.ProgrammingError: UndefinedColumn: column accounts.billing_region does not exist\nFile \"/srv/billing/repository.py\", line 109, in load_account",
+            "top_k": 6
+          },
+          "success": true
+        }
+      ],
+      "provider_calls": [],
+      "correct_calls": 2,
+      "unnecessary_calls": 0,
+      "suggested_fix": "\n\n",
+      "similar_incident_ids": [
+        "INC-0061",
+        "INC-0059",
+        "INC-0068",
+        "INC-0060",
+        "INC-0065",
+        "INC-0057"
+      ]
+    },
+    {
+      "id": "INC-0121",
+      "expected": "missing_configuration",
+      "predicted": [],
+      "top1": false,
+      "top3": false,
+      "status": "failed",
+      "error_details": "root_cause: ProviderMalformedOutputError: Budgeted provider response has missing or invalid token usage",
+      "latency_seconds": 4.35667839999951,
+      "steps": 2,
+      "usage_counter": 0,
+      "estimated_cost_usd": 0.074076,
+      "tool_calls": [
+        {
+          "tool": "get_log_context",
+          "arguments": {
+            "log": "2026-09-20T13:21:47Z pod=notifications-898 severity=ERROR\nrequest failed after retry; required environment variable DATABASE_URL missing at startup\n  File \"/srv/notifications/settings.py\", line 104, in load_settings\nKeyError: required environment variable DATABASE_URL missing at startup\nWARN health probe failed; investigating rollout"
+          },
+          "success": true
+        },
+        {
+          "tool": "search_incidents",
+          "arguments": {
+            "query": "KeyError: required environment variable DATABASE_URL missing at startup\nFile \"/srv/notifications/settings.py\", line 104, in load_settings",
+            "top_k": 6
+          },
+          "success": true
+        }
+      ],
+      "provider_calls": [],
+      "correct_calls": 2,
+      "unnecessary_calls": 0,
+      "suggested_fix": "\n\n",
+      "similar_incident_ids": [
+        "INC-0116",
+        "INC-0110",
+        "INC-0114",
+        "INC-0104",
+        "INC-0118",
+        "INC-0109"
+      ]
+    },
+    {
+      "id": "INC-0171",
+      "expected": "dns_failure",
+      "predicted": [],
+      "top1": false,
+      "top3": false,
+      "status": "failed",
+      "error_details": "root_cause: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
+      "latency_seconds": 31.670974699998624,
+      "steps": 2,
+      "usage_counter": 0,
+      "estimated_cost_usd": 0.074568,
+      "tool_calls": [
+        {
+          "tool": "get_log_context",
+          "arguments": {
+            "log": "2026-09-20T13:21:47Z pod=worker-617 severity=ERROR\nrequest failed after retry; [Errno -3] Temporary failure in name resolution for inventory.internal\n  File \"/srv/worker/client.py\", line 34, in resolve\nsocket.gaierror: [Errno -3] Temporary failure in name resolution for inventory.internal\nWARN health probe failed; investigating rollout"
+          },
+          "success": true
+        },
+        {
+          "tool": "search_incidents",
+          "arguments": {
+            "query": "socket.gaierror: [Errno -3] Temporary failure in name resolution for inventory.internal\nFile \"/srv/worker/client.py\", line 34, in resolve",
+            "top_k": 6
+          },
+          "success": true
+        }
+      ],
+      "provider_calls": [],
+      "correct_calls": 2,
+      "unnecessary_calls": 0,
+      "suggested_fix": "\n\n",
+      "similar_incident_ids": [
+        "INC-0155",
+        "INC-0169",
+        "INC-0162",
+        "INC-0166",
+        "INC-0165",
+        "INC-0157"
+      ]
+    },
+    {
+      "id": "INC-0221",
+      "expected": "concurrent_mutation",
+      "predicted": [
+        "concurrent_mutation"
+      ],
+      "top1": true,
+      "top3": true,
+      "status": "failed",
+      "error_details": "fix_drafter: ProviderUnavailableError: Provider server error (503): [{\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n]",
+      "latency_seconds": 50.923426199999085,
+      "steps": 3,
+      "usage_counter": 1598,
+      "estimated_cost_usd": 0.152448,
+      "tool_calls": [
+        {
+          "tool": "get_log_context",
+          "arguments": {
+            "log": "2026-09-20T13:21:47Z pod=checkout-247 severity=ERROR\nrequest failed after retry; dictionary changed size during iteration while background refresh removed keys\n  File \"/srv/checkout/registry.py\", line 187, in snapshot\nRuntimeError: dictionary changed size during iteration while background refresh removed keys\nWARN health probe failed; investigating rollout"
+          },
+          "success": true
+        },
+        {
+          "tool": "search_incidents",
+          "arguments": {
+            "query": "RuntimeError: dictionary changed size during iteration while background refresh removed keys\nFile \"/srv/checkout/registry.py\", line 187, in snapshot",
+            "top_k": 6
+          },
+          "success": true
+        }
+      ],
+      "provider_calls": [
+        {
+          "provider_model": "gemini-3.7-flash",
+          "cached": false,
+          "response_cost_usd": 0.0015225,
+          "billed_cost_usd": 0.0015225,
+          "raw_response_key": "a027a1790fd3529569fd748629c8cb8ca619a03ea8ea20d21f379be07c4766a9"
+        }
+      ],
+      "correct_calls": 2,
+      "unnecessary_calls": 0,
+      "suggested_fix": "\n\n",
+      "similar_incident_ids": [
+        "INC-0207",
+        "INC-0219",
+        "INC-0217",
+        "INC-0201",
+        "INC-0215",
+        "INC-0216"
+      ]
+    }
+  ],
+  "injections": [],
+  "judge": {
+    "model": "gemini-3.7-flash",
+    "temperature": 0.0,
+    "budget_exhausted": false,
+    "provider_error": null,
+    "provider_error_details": null,
+    "request_metrics": {
+      "http_attempts": 0,
+      "rate_limit_responses": 0,
+      "retries": 0,
+      "backoff_seconds": 0,
+      "throttle_wait_seconds": 0,
+      "cache_hits": 0
+    },
+    "task_fix_mean_score": null,
+    "task_scores": [],
+    "validation_scores": [],
+    "human_labelled_cases": 0,
+    "validation_status": "pending_live_judge",
+    "agreement": {},
+    "disagreements": []
+  },
+  "projection_complete": false,
+  "projected_full_eval_cost_usd": null
+}

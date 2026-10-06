@@ -47,3 +47,4 @@ jobs:
           TEST_REDIS_URL: redis://localhost:6379/0
           TEST_CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agent_patterns
       - run: python -m scripts.benchmark_cache --iterations 500 --target-ms 5
+      - run: make eval

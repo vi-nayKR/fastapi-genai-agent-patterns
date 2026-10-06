@@ -11,7 +11,9 @@ RUN groupadd --system --gid 10001 app \
 
 COPY pyproject.toml README.md requirements.txt ./
 COPY src ./src
+COPY evals/data/incidents.json ./evals/data/incidents.json
 RUN python -m pip install .
+RUN mkdir -p /app/data && chown app:app /app/data
 
 USER 10001:10001
 EXPOSE 8002

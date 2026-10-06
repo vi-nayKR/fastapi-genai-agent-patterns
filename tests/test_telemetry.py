@@ -17,6 +17,7 @@ from agent_patterns.config import Settings
 from agent_patterns.providers.openai_provider import OpenAIProvider
 from agent_patterns.schemas import AgentRunRequest
 from tests.fakes import FakeRedis
+from tests.test_agents import LOG
 
 
 def provider_and_exporter() -> tuple[TracerProvider, InMemorySpanExporter]:
@@ -31,17 +32,21 @@ async def test_agent_run_contains_specialist_child_spans() -> None:
     provider, exporter = provider_and_exporter()
     runtime = AgentRuntime(provider.get_tracer("test"))
 
-    result = await runtime.start(
-        AgentRunRequest(task="Implement a Python API test"), tenant_id="tenant-alpha"
-    )
+    result = await runtime.start(AgentRunRequest(task=LOG), tenant_id="tenant-alpha")
 
     spans = {span.name: span for span in exporter.get_finished_spans()}
     assert result.status == "completed"
     assert "agent.run" in spans
-    assert "agent.worker.research" in spans
-    assert "agent.worker.coding" in spans
-    assert spans["agent.worker.coding"].parent is not None
-    assert spans["agent.worker.coding"].parent.span_id == spans["agent.run"].context.span_id
+    assert "agent.worker.root_cause" in spans
+    assert "agent.worker.fix_drafter" in spans
+    assert "mcp.tool.get_log_context" in spans
+    assert "mcp.tool.search_incidents" in spans
+    assert (
+        spans["mcp.tool.search_incidents"].parent.span_id
+        == spans["agent.worker.incident_retriever"].context.span_id
+    )
+    assert spans["agent.worker.fix_drafter"].parent is not None
+    assert spans["agent.worker.fix_drafter"].parent.span_id == spans["agent.run"].context.span_id
     provider.shutdown()
 
 
@@ -51,7 +56,7 @@ async def test_approval_and_timeout_spans_report_their_actual_state() -> None:
     tracer = tracer_provider.get_tracer("test")
     runtime = AgentRuntime(tracer)
     pending = await runtime.start(
-        AgentRunRequest(task="Deploy the payment API", risk_level="high"),
+        AgentRunRequest(task=LOG, risk_level="high"),
         tenant_id="tenant-alpha",
     )
     await runtime.close()
@@ -67,7 +72,7 @@ async def test_approval_and_timeout_spans_report_their_actual_state() -> None:
     )
     failing_runtime = AgentRuntime(tracer, provider=openai_provider)
     failed = await failing_runtime.start(
-        AgentRunRequest(task="Deploy the payment API", risk_level="high"),
+        AgentRunRequest(task=LOG, risk_level="high"),
         tenant_id="tenant-alpha",
     )
     await failing_runtime.close()

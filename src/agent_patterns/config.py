@@ -22,7 +22,11 @@ class Settings(BaseSettings):
         frozen=True,
     )
 
-    service_name: str = "fastapi-genai-agent-patterns"
+    service_name: str = "traceward"
+    incident_data_path: str = "evals/data/incidents.json"
+    ticket_database_path: str = "data/tickets.sqlite3"
+    # Upper-bound accounting rate, set >= both deployment input/output token prices.
+    token_price_usd_per_million: float = Field(default=12.0, gt=0)
     environment: Literal["local", "test", "staging", "production"] = "local"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     api_prefix: str = "/api/v1"
@@ -39,13 +43,30 @@ class Settings(BaseSettings):
     otlp_endpoint: str | None = None
     provider_mode: Literal["deterministic", "openai"] = "deterministic"
     provider_api_key: str | None = None
-    provider_base_url: str = "https://api.openai.com/v1"
-    provider_model: str = "gpt-4o-mini"
+    provider_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    provider_model: str = "gemini-3.7-flash"
+    provider_judge_model: str | None = "gemini-3.7-flash"
+    provider_temperature: float = Field(default=0.1, ge=0, le=2)
+    provider_judge_temperature: float = Field(default=0, ge=0, le=0)
+    provider_seed: int | None = 42
+    provider_seed_supported: bool = False
+    provider_cache_dir: str | None = "evals/raw"
+    provider_input_usd_per_million: float = Field(default=0.75, gt=0)
+    provider_output_usd_per_million: float = Field(default=3.75, gt=0)
+    provider_judge_input_usd_per_million: float = Field(default=0.75, gt=0)
+    provider_judge_output_usd_per_million: float = Field(default=3.75, gt=0)
+    eval_max_cost_usd: float = Field(default=2.90, gt=0, lt=3)
     provider_timeout_seconds: float = Field(default=15.0, gt=0.0, le=120.0)
     provider_max_retries: int = Field(default=2, ge=0, le=5)
+    provider_min_interval_seconds: float = Field(default=12, ge=0, le=300)
+    provider_retry_backoff_seconds: float = Field(default=12, gt=0, le=60)
 
     @model_validator(mode="after")
     def require_deployment_security(self) -> "Settings":
+        if self.token_price_usd_per_million < max(
+            self.provider_input_usd_per_million, self.provider_output_usd_per_million
+        ):
+            raise ValueError("token_price_usd_per_million must cover both agent token rates")
         if self.environment in {"staging", "production"}:
             if not self.checkpoint_database_url:
                 raise ValueError("checkpoint_database_url is required outside local/test")

@@ -3,8 +3,16 @@
 import operator
 from typing import Annotated, Any, Literal, TypedDict
 
-AgentName = Literal["research", "coding", "compliance"]
-GraphRoute = Literal["research", "coding", "compliance", "approval", "finalize"]
+AgentName = Literal["log_parser", "incident_retriever", "root_cause", "fix_drafter"]
+GraphRoute = Literal[
+    "log_parser",
+    "incident_retriever",
+    "root_cause",
+    "fix_drafter",
+    "approval",
+    "ticket",
+    "finalize",
+]
 RunStatus = Literal["running", "pending_approval", "completed", "rejected", "failed"]
 
 
@@ -22,13 +30,24 @@ class AgentState(TypedDict, total=False):
     planned_agents: list[AgentName]
     completed_agents: Annotated[list[AgentName], operator.add]
     partial_results: dict[str, str]
-    structured_results: dict[str, Any]
     structured_result: dict[str, Any] | None
     error_details: str | None
     total_tokens: int
     audit_log: Annotated[list[str], operator.add]
     iterations: int
     max_iterations: int
+    max_steps: int
     next_route: GraphRoute
     status: RunStatus
     result: str | None
+    create_ticket: bool
+    max_tokens: int
+    max_cost_usd: float
+    estimated_cost_usd: float
+    reserved_tokens: int
+    parsed_log: dict[str, Any]
+    similar_incidents: list[dict[str, Any]]
+    hypotheses: list[dict[str, Any]]
+    fix: dict[str, Any]
+    ticket: dict[str, Any] | None
+    trajectory: Annotated[list[dict[str, Any]], operator.add]

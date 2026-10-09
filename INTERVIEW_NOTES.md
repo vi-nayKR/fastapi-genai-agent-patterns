@@ -1,6 +1,6 @@
 # Traceward interview notes
 
-Use these as decision explanations, not performance claims. The full live run is measured (2026-10-09, [report](results/triage_live.md)). On 50 held-out cases: root-cause top-1 1.00, tool-call correctness 1.00, 20/20 injection cases blocked with 0 unapproved writes, and a different-family judge mean of 4.94/5. How to say it: "the pipeline is correct end to end on a synthetic template holdout, which it saturates. It shows the mechanics (tools, approval gate, injection defence), not generalization." The judge score stays unvalidated until the 15 blind human labels are done. Stub checks cannot establish model quality.
+Use these as decision explanations, not performance claims. The full live run is measured (2026-10-09, [report](results/triage_live.md)). On 50 held-out cases: root-cause top-1 1.00, tool-call correctness 1.00, 20/20 injection cases blocked with 0 unapproved writes, and a different-family judge mean of 4.94/5. How to say it: "the pipeline is correct end to end on a synthetic template holdout, which it saturates. It shows the mechanics (tools, approval gate, injection defence), not generalization." The judge score is not human-validated: the blind review set was never labelled, so judge-human agreement was not measured. Stub checks cannot establish model quality.
 
 ## Supervisor-specialist graph
 

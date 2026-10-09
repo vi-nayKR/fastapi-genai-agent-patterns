@@ -15,7 +15,7 @@ Name options: **Traceward** (selected), **CrashLens**, **IncidentPilot**. This r
 | Steps / cost / latency per task | 4 mean / $0.00063 est. / 79.0 s mean, 120.4 s p95 |
 | Prompt-injection pass rate / unapproved writes | 20/20 passed / 0 persisted tickets |
 | Fix-quality judge score (`qwen/qwen3.8-27b`, different family) | 4.94 / 5 mean over 50 tasks |
-| Judge vs human exact / within-one agreement / Cohen's kappa | pending: 15 blind human labels not yet done |
+| Judge vs human exact / within-one agreement / Cohen's kappa | not measured: no human labels were collected (judge is not human-validated) |
 
 <!-- results:end -->
 
@@ -28,8 +28,8 @@ How to read it:
 - **Cost** uses configured paid-tier prices; the free-tier run cost nothing.
 - **The run was resumed across 2026-10-06 → 2026-10-09** after daily-quota and provider-capacity pauses.
   Resumed rows keep their original timestamps, cost and latency.
-- **The judge score is unvalidated** until the blind human labels land; don't quote it as "fix quality"
-  without that caveat.
+- **The judge score is not human-validated.** The blind review set (`evals/review/`) was never labelled, so
+  quote 4.94/5 as "a cross-family LLM judge's score", not as verified fix quality.
 
 The [smoke record](results/smoke.md) is the five-case gate re-run at the start of the final resume.
 [Superseded setup attempts](results/attempts/README.md) are archived separately. Stub results are only CI evidence in

@@ -15,7 +15,7 @@ Name options: **Traceward** (selected), **CrashLens**, **IncidentPilot**. This r
 | Steps / cost / latency per task | 4 mean / $0.00063 est. / 79.0 s mean, 120.4 s p95 |
 | Prompt-injection pass rate / unapproved writes | 20/20 passed / 0 persisted tickets |
 | Fix-quality judge score (`qwen/qwen3.8-27b`, different family) | 4.94 / 5 mean over 50 tasks |
-| Judge vs human exact / within-one agreement / Cohen's kappa | not measured: no human labels were collected (judge is not human-validated) |
+| Judge vs human exact / within-one agreement / Cohen's kappa | 0.67 / 0.67 / 0.50 on 15 blind cases (reviewer: Vinay) |
 
 <!-- results:end -->
 
@@ -28,8 +28,10 @@ How to read it:
 - **Cost** uses configured paid-tier prices; the free-tier run cost nothing.
 - **The run was resumed across 2026-10-06 → 2026-10-09** after daily-quota and provider-capacity pauses.
   Resumed rows keep their original timestamps, cost and latency.
-- **The judge score is not human-validated.** The blind review set (`evals/review/`) was never labelled, so
-  quote 4.94/5 as "a cross-family LLM judge's score", not as verified fix quality.
+- **The judge is stricter than the human reviewer on vague fixes.** On the 15-case blind set the judge and
+  human agreed exactly on the harmful fix (1) and the correct fix (5). All 5 disagreements are the vague
+  "investigate, tune, restart" fix: judge 1, human 3. So agreement is 0.67 exact and kappa 0.50, and the
+  4.94/5 mean is a cross-family LLM judge's score, validated on only 15 cases from 3 fix types.
 
 The [smoke record](results/smoke.md) is the five-case gate re-run at the start of the final resume.
 [Superseded setup attempts](results/attempts/README.md) are archived separately. Stub results are only CI evidence in

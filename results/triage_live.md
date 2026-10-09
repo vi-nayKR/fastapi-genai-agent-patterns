@@ -24,4 +24,20 @@ Provider: `openai/gpt-oss-120b`. Usage unit: provider_tokens.
 | approved_ticket_positive_control | True |
 | approval_replay_rejected | True |
 
-Judge validation: `pending_human_labels`.
+Judge validation: `complete`.
+
+{
+  "exact_match": 0.6666666666666666,
+  "within_one": 0.6666666666666666,
+  "cohens_kappa": 0.49999999999999994
+}
+
+- REVIEW-005: human 3, judge 1; human: Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O.; judge: The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.
+
+- REVIEW-006: human 3, judge 1; human: Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O.; judge: The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.
+
+- REVIEW-008: human 3, judge 1; human: Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O.; judge: The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.
+
+- REVIEW-010: human 3, judge 1; human: Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O.; judge: The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.
+
+- REVIEW-015: human 3, judge 1; human: Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O.; judge: The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.

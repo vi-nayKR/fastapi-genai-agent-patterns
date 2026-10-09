@@ -4166,10 +4166,105 @@
         "resumed_from_checkpoint": true
       }
     ],
-    "human_labelled_cases": 0,
-    "validation_status": "pending_human_labels",
-    "agreement": {},
-    "disagreements": []
+    "human_labelled_cases": 15,
+    "validation_status": "complete",
+    "agreement": {
+      "exact_match": 0.6666666666666666,
+      "within_one": 0.6666666666666666,
+      "cohens_kappa": 0.49999999999999994
+    },
+    "disagreements": [
+      {
+        "id": "REVIEW-005",
+        "score": 1,
+        "rationale": "The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.",
+        "tokens": 434,
+        "response_cost_usd": 0.0006479999999999999,
+        "billed_cost_usd": 0.0006479999999999999,
+        "cached": false,
+        "raw_response_key": "9570c6458db409e477110bade01af8503c47d7dbf478b77d2ce821815b66bc36",
+        "latency_seconds": 20.112060700001166,
+        "evaluated_at_utc": "2026-10-06T08:40:48.483927+00:00",
+        "resumed_from_checkpoint": true,
+        "human": {
+          "score": 3,
+          "would_apply": "no",
+          "rationale": "Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O."
+        }
+      },
+      {
+        "id": "REVIEW-006",
+        "score": 1,
+        "rationale": "The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.",
+        "tokens": 434,
+        "response_cost_usd": 0.0006479999999999999,
+        "billed_cost_usd": 0.0006479999999999999,
+        "cached": false,
+        "raw_response_key": "012efcb588c5225d80dc9e0d045476733c4c87a6ba7a8b0f795c2519fd4caece",
+        "latency_seconds": 20.066938299998583,
+        "evaluated_at_utc": "2026-10-06T08:41:08.556042+00:00",
+        "resumed_from_checkpoint": true,
+        "human": {
+          "score": 3,
+          "would_apply": "no",
+          "rationale": "Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O."
+        }
+      },
+      {
+        "id": "REVIEW-008",
+        "score": 1,
+        "rationale": "The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.",
+        "tokens": 434,
+        "response_cost_usd": 0.0006479999999999999,
+        "billed_cost_usd": 0.0006479999999999999,
+        "cached": false,
+        "raw_response_key": "581bde7c7e5be3f38680153d4f24d8f61d5355dd6a48661c61f7f29a09d2b23f",
+        "latency_seconds": 20.173351500001445,
+        "evaluated_at_utc": "2026-10-06T08:41:48.663153+00:00",
+        "resumed_from_checkpoint": true,
+        "human": {
+          "score": 3,
+          "would_apply": "no",
+          "rationale": "Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O."
+        }
+      },
+      {
+        "id": "REVIEW-010",
+        "score": 1,
+        "rationale": "The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.",
+        "tokens": 434,
+        "response_cost_usd": 0.0006479999999999999,
+        "billed_cost_usd": 0.0006479999999999999,
+        "cached": false,
+        "raw_response_key": "a15bd06913606b1293e0c89cfe5444d02022a863f6a18e12f901ec691d97fa0d",
+        "latency_seconds": 20.059044699999504,
+        "evaluated_at_utc": "2026-10-06T08:42:28.516047+00:00",
+        "resumed_from_checkpoint": true,
+        "human": {
+          "score": 3,
+          "would_apply": "no",
+          "rationale": "Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O."
+        }
+      },
+      {
+        "id": "REVIEW-015",
+        "score": 1,
+        "rationale": "The proposed fix is vague and non-actionable. It suggests 'investigating' and 'tuning settings' without addressing the specific root cause identified in the incident (synchronous `requests.get` blocking the asyncio event loop). A correct fix would involve replacing the blocking call with an asynchronous client (e.g., `aiohttp`) or offloading the blocking I/O to a thread pool executor.",
+        "tokens": 434,
+        "response_cost_usd": 0.0006479999999999999,
+        "billed_cost_usd": 0.0006479999999999999,
+        "cached": false,
+        "raw_response_key": "d424988be4f8e0db273b3dcd61c65fd61863bd3e2a97226521df2fd7c6dc99f2",
+        "latency_seconds": 20.046110400002362,
+        "evaluated_at_utc": "2026-10-06T08:44:08.593992+00:00",
+        "resumed_from_checkpoint": true,
+        "human": {
+          "score": 3,
+          "would_apply": "no",
+          "rationale": "Identifies event loop area but fix is vague and suggests tuning/restart instead of replacing synchronous requests with async I/O."
+        }
+      }
+    ]
   },
   "daily_quota_paused": false,
   "same_model_judge": false,

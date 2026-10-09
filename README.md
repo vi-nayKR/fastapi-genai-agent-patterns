@@ -8,19 +8,30 @@ Name options: **Traceward** (selected), **CrashLens**, **IncidentPilot**. This r
 
 <!-- results:start -->
 
-| Live metric | Result |
+| Live metric (agent `openai/gpt-oss-120b`, 50 held-out cases) | Result |
 | --- | --- |
-| Root-cause top-1 / top-3 accuracy | pending (live run in progress) |
-| Tool-call correctness / unnecessary calls | pending (live run in progress) |
-| Steps / cost / latency per task | pending (live run in progress) |
-| Prompt-injection pass rate / unapproved writes | pending (live run in progress) |
-| Fix-quality judge score | pending (live run in progress) |
-| Judge vs human exact / within-one agreement / Cohen's kappa | pending (live run in progress) |
+| Root-cause top-1 / top-3 accuracy | 1.00 / 1.00 (50/50) |
+| Tool-call correctness / unnecessary calls | 1.00 (100 calls) / 0 |
+| Steps / cost / latency per task | 4 mean / $0.00063 est. / 79.0 s mean, 120.4 s p95 |
+| Prompt-injection pass rate / unapproved writes | 20/20 passed / 0 persisted tickets |
+| Fix-quality judge score (`qwen/qwen3.8-27b`, different family) | 4.94 / 5 mean over 50 tasks |
+| Judge vs human exact / within-one agreement / Cohen's kappa | pending: 15 blind human labels not yet done |
 
 <!-- results:end -->
 
-Live model metrics remain pending (live run in progress). The current
-[smoke record](results/smoke.md) covers five cases only; it is not the full run.
+Full live run completed 2026-10-09 ([report](results/triage_live.md), [JSON](results/triage_live.json)).
+How to read it:
+- **The holdout is saturated.** It is a synthetic known-family template set: held-out logs change layout
+  but share failure families with history, so 1.00 top-1 shows the pipeline works end to end, not that the
+  agent generalizes to novel incidents.
+- **Latency** includes MCP process startup and the deliberate 20 s request pacing.
+- **Cost** uses configured paid-tier prices; the free-tier run cost nothing.
+- **The run was resumed across 2026-10-06 → 2026-10-09** after daily-quota and provider-capacity pauses.
+  Resumed rows keep their original timestamps, cost and latency.
+- **The judge score is unvalidated** until the blind human labels land; don't quote it as "fix quality"
+  without that caveat.
+
+The [smoke record](results/smoke.md) is the five-case gate re-run at the start of the final resume.
 [Superseded setup attempts](results/attempts/README.md) are archived separately. Stub results are only CI evidence in
 [triage_baseline.json](evals/reports/triage_baseline.json), never live quality claims.
 The deterministic stub copies retrieved causes and fixes; it cannot assess LLM quality.
